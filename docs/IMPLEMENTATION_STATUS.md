@@ -1,6 +1,6 @@
 # AFTR — Implementation Status & Roadmap
 
-**Current State**: Stage 3 (Authentication and Invitation Gate) Completed  
+**Current State**: Stage 4 (AFTR Design System and Frontend) Completed  
 **Last Updated**: 2026-11-18  
 **Architecture Lead**: Antigravity  
 
@@ -65,7 +65,54 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
     - `/invite/[token]`: Live validation and state screens (`VALID`, `EXPIRED`, `REVOKED`, `ALREADY_REDEEMED`, `NOT_FOUND`)
     - `/onboarding`: 4-step guided onboarding (Age Assurance, Policies, Anonymous Persona setup, Entrance)
   - Automated Tests: **35/35 test suites passing**
-- [ ] **Stage 4: Anonymous Personas, Safety, Moderation & Reporting Foundation**
+- [x] **Stage 4: AFTR Design System and Frontend**
+  - Brand identity: **AFTR** — *"Meet without revealing."*
+  - Strict color tokens applied: Background `#111016`, Surface `#1C1923`, Primary `#9B72CF`, Accent `#DCA7E8`, Text `#F6F1FA`, Secondary `#A49BAF`, Danger `#E56A75`, Success `#62C49A`
+  - Typography: Geist Sans & Geist Mono with smooth anti-aliasing
+  - Navigation Framework:
+    - Desktop: Left sidebar (Logo, 9 navigation items, invitation quota counter, current persona pill)
+    - Center: Main content area
+    - Desktop: Optional right discovery panel (Trending topics, upcoming campus gatherings, zero surveillance charter)
+    - Mobile: Compact top header and bottom navigation bar
+  - All 15 AFTR Components Implemented:
+    1. `AnonymousPersona`: Visual avatar seed graphic, display name, self-declared campus badge, zero identity link
+    2. `AnonymousPostCard`: Tag badges, sensitive/adult blur overlay toggle, confession text, relative timestamp, reaction bar, comments link, report & block actions
+    3. `CategorySelector`: Horizontal scrollable category pills with active purple gradients
+    4. `ReactionBar`: Interactive anonymous reactions (Upvote, Flame, Relatable Heart, Insightful Sparkles) with active count toggles
+    5. `CommentList`: Threaded nested anonymous comments, OP indicators, inline reply input, and reporting
+    6. `PostComposer`: Confession and adult discussion composer, category picker, character counter, sensitive flag, and **real-time PII & Identity Leak Shield** (detects phone numbers, emails, student IDs, and social handles)
+    7. `ConnectionCard`: Anonymous compatibility card, percentage match meter, shared adult interests, declared campus, and consent-based connection request action
+    8. `ChatRequestCard`: Inbound/outbound connection request card with accept, decline, and block options
+    9. `ConversationWindow`: 1-on-1 private messaging window for accepted connections with mutual consent badge, chronological bubble stream, and message composer
+    10. `InvitationCard`: Shareable single-use invitation details, copy-to-clipboard with check feedback, 72h countdown timer, recipient binding mask, and revocation
+    11. `InvitationQuota`: Visual meter of the 3 allocated invitation slots, product rule enforcement note, and single-use token issuance workflow
+    12. `ReportDialog`: Accessible modal for reporting content with violation category taxonomy and review feedback
+    13. `BlockDialog`: Accessible modal for universal persona blocking with clear explanation of privacy protection
+    14. `EventCard`: Public campus gathering card with title, date, landmark venue name (strictly no GPS), attendee count, and anonymous RSVP toggling
+    15. `SafetyNotice`: Dismissible safety notice detailing the 18+ adult assurance, zero college email surveillance, and mutual consent guarantees
+  - All 16 Specified Pages Fully Functional:
+    1. `/` (Landing page with brand hero, feature pillars, 18+ assurance, and live backend health bridge)
+    2. `/login` (Supabase email/password login with invitation gate redirector)
+    3. `/register` (Invitation-bound member registration)
+    4. `/invite` (Single-use token entry and verification)
+    5. `/onboarding` (4-step onboarding: AgeAssuranceEngine cryptographic verification, policies, persona setup, completion)
+    6. `/feed` (Campus confessions & adult discussions feed with category filter and quick composer)
+    7. `/discover` (Compatibility discovery with search and interest filtering)
+    8. `/create` (Dedicated anonymous post composer with real-time PII shield)
+    9. `/post/[id]` (Detailed post view with full threaded comments and OP indicators)
+    10. `/chats` (Private conversations list and pending connection requests manager)
+    11. `/chats/[id]` (1-on-1 direct private conversation window)
+    12. `/stories` (24-hour ephemeral stories board with self-destructing thoughts and composer)
+    13. `/events` (Campus group events board with landmark venue and anonymous RSVPs)
+    14. `/profile` (Anonymous persona manager, self-declared campus editor, and invitation quota manager)
+    15. `/settings` (18+ Age assurance verification badge, content filters, blocked personas list, session sign out)
+    16. `/admin` (Moderation review queue, content takedown, persona suspension, and immutable audit log stream)
+  - Quality & Verification:
+    - `npm run lint` -> 0 errors, 0 warnings
+    - `npm run build` -> Static page optimization passed for all routes
+    - HTTP 200 response verified on all 17 frontend endpoints
+    - Pytest backend test suite: **35/35 tests passing**
+- [ ] **Stage 5: Confessions & Adult Discussion Feeds API Integration**
   - Universal block engine
   - Content reporting pipeline
   - Word-filter & regex moderation pre-processor
@@ -105,3 +152,4 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 | 2026-11-18 | Stage 1 | Monorepo layout, Next.js App Router, FastAPI modular monolith, PostgreSQL & Redis containers, Alembic, `@aftr/shared-types`, `@aftr/validation`, test harness, verified live health bridge | ✅ Completed |
 | 2026-11-18 | Stage 2 | Implemented 20 domain SQLAlchemy models, 5 sequenced Alembic migrations, PostgreSQL RLS & atomic redemption function, development seed script, 23/23 tests passing | ✅ Completed |
 | 2026-11-18 | Stage 3 | Supabase JWT backend verification, 7 endpoints for invitation gate, AgeAssuranceEngine, 5 Next.js screens, 35/35 tests passing | ✅ Completed |
+| 2026-11-18 | Stage 4 | AFTR Design System & Frontend: exact brand color tokens, Desktop left sidebar & right discovery panel, Mobile compact header & bottom navigation, all 15 AFTR components, all 16 pages, 0 lint errors, Next.js build passed (18/18 routes), all 17 live routes tested OK 200, 35/35 pytest tests passing | ✅ Completed |

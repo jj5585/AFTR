@@ -4,35 +4,30 @@
 
 @layer base {
   :root {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-
-    --card: 224 71% 7%;
-    --card-foreground: 213 31% 91%;
-
-    --popover: 224 71% 6%;
-    --popover-foreground: 215 20.2% 65.1%;
-
-    --primary: 263.4 70% 50.4%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 222.2 47.4% 11.2%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
-
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --ring: 263.4 70% 50.4%;
-
-    --radius: 0.75rem;
+    /* Brand Color Tokens */
+    --background: #111016;
+    --surface: #1C1923;
+    --card: #1C1923;
+    --card-foreground: #F6F1FA;
+    --popover: #1C1923;
+    --popover-foreground: #F6F1FA;
+    --primary: #9B72CF;
+    --primary-foreground: #111016;
+    --accent: #DCA7E8;
+    --accent-foreground: #111016;
+    --secondary: #A49BAF;
+    --secondary-foreground: #111016;
+    --muted: #1E1A29;
+    --muted-foreground: #A49BAF;
+    --border: #2D283B;
+    --input: #2D283B;
+    --ring: #9B72CF;
+    --danger: #E56A75;
+    --destructive: #E56A75;
+    --destructive-foreground: #F6F1FA;
+    --success: #62C49A;
+    --foreground: #F6F1FA;
+    --radius: 0.85rem;
   }
 }
 
@@ -41,7 +36,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: #111016;
+    color: #F6F1FA;
+  }
+  ::selection {
+    background-color: rgba(155, 114, 207, 0.3);
+    color: #DCA7E8;
   }
 }
