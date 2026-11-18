@@ -9,7 +9,7 @@ import { socialApi } from "@/lib/api";
 interface ReportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  targetType: "POST" | "COMMENT" | "PERSONA";
+  targetType: "POST" | "COMMENT" | "PERSONA" | "CONVERSATION" | "MESSAGE";
   targetId: string;
   targetAuthor?: string;
 }

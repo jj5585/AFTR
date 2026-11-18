@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from backend.app.core.security import create_test_jwt
+from backend.app.core.encryption import decrypt_message_content
 from backend.app.models.account import Account, AccountStatus
 from backend.app.models.persona import Persona, CampusAffiliation, Interest, PersonaInterest
 from backend.app.models.connection import (
@@ -389,7 +390,8 @@ async def test_connection_request_lifecycle(
     msg_stmt = select(Message).where(Message.conversation_id == conv.id)
     msgs = list((await db_session.execute(msg_stmt)).scalars().all())
     assert len(msgs) == 1
-    assert msgs[0].content == "Loved your philosophy post earlier!"
+    assert msgs[0].is_encrypted is True
+    assert decrypt_message_content(msgs[0].content) == "Loved your philosophy post earlier!"
 
     # 5. Verify mutual matches endpoint for both users
     alice_matches = await async_client.get(

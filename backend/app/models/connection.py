@@ -116,6 +116,15 @@ class Conversation(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         default=True,
         nullable=False,
     )
+    last_message_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    blocked_by_persona_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("personas.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     participants: Mapped[List["ConversationParticipant"]] = relationship(
         "ConversationParticipant",
@@ -144,10 +153,22 @@ class ConversationParticipant(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         index=True,
         nullable=False,
     )
+    conversation_pseudonym: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    last_read_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     conversation: Mapped["Conversation"] = relationship(
         "Conversation",
         back_populates="participants",
+    )
+    persona: Mapped["Persona"] = relationship(
+        "Persona",
+        foreign_keys=[persona_id],
     )
 
     __table_args__ = (
@@ -174,8 +195,26 @@ class Message(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Text,
         nullable=False,
     )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    is_encrypted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
 
     conversation: Mapped["Conversation"] = relationship(
         "Conversation",
         back_populates="messages",
+    )
+    sender_persona: Mapped["Persona"] = relationship(
+        "Persona",
+        foreign_keys=[sender_persona_id],
     )

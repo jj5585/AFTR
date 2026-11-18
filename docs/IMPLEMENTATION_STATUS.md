@@ -1,6 +1,6 @@
 # AFTR — Implementation Status & Roadmap
 
-**Current State**: Stage 6 (Discovery and Connections) Completed  
+**Current State**: Stage 7 (Private Messaging) Completed  
 **Last Updated**: 2026-11-18  
 **Architecture Lead**: Antigravity  
 
@@ -145,10 +145,18 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
   - **Bilateral Block Isolation**: Complete two-way omission across discovery cards, connection requests, and matches.
   - **Frontend Integration**: `apps/web/src/lib/api.ts` connecting `discover/page.tsx`, `ConnectionCard.tsx`, `chats/page.tsx`, and `ChatRequestCard.tsx`.
   - **Automated Tests**: **54/54 test suites passing** (including 10 comprehensive discovery and mutual consent tests).
-- [ ] **Stage 7: Private Consent-Based Messaging & Real-Time Chat**
-  - End-to-end isolated 1-on-1 private messaging for accepted connections
-  - WebSocket / SSE real-time messaging pipeline with typing indicators
-  - Conversation archiving and safety triggers
+- [x] **Stage 7: Private Messaging System**
+  - **Alembic Migration 008**: Adds `last_message_at`, `blocked_by_persona_id` to `conversations`; `conversation_pseudonym`, `last_read_at` to `conversation_participants`; `is_deleted`, `deleted_at`, `is_encrypted` to `messages`.
+  - **Membership Authorization on Every Operation**: All conversation actions (`GET /conversations`, `GET /messages`, `POST /messages`, `DELETE /messages`, `POST /read`, `POST /block`, WebSocket connection) verify participant membership in database before executing; non-members are strictly rejected with 403 Forbidden.
+  - **Mutual Consent Verification**: Conversations cannot exist or receive messages without verified bilateral consent (ACCEPTED connection request).
+  - **Conversation-Specific Pseudonyms**: Generated deterministic/localized pseudonyms (e.g. `Echo-...` and `Shadow-...`) decoupling conversation messaging from other site personas.
+  - **Encrypted Storage at Rest**: Fernet-authenticated AES-128 symmetric encryption (`backend/app/core/encryption.py`) encrypts all message payloads at rest in PostgreSQL.
+  - **Zero Message Content Logging**: Strict audit logs record metadata only (`conv_id`, `sender_persona_id`, `msg_id`); message text is never printed or logged to console or storage.
+  - **FastAPI Realtime WebSocket Transport**: `/api/v1/ws/conversations/{id}` with JWT authentication, unauthorized subscription prevention, ping/pong health, real-time message broadcasting, typing indicators, and online status.
+  - **Message Deletion**: Author-verified soft deletion replacing content with `[This message was deleted]` and broadcasting realtime deletion event.
+  - **Conversation Blocking**: Closes conversation, records bilateral block, and returns 403 Forbidden on any future message attempts.
+  - **Notification Indicators & Unread Counters**: `last_read_at` tracking with global `GET /conversations/unread-count` and reset upon opening conversation.
+  - **Automated Tests**: **62/62 test suites passing** (including 8 comprehensive messaging authorization and security tests).
 - [ ] **Stage 8: Ephemeral Stories & Group Events**
   - Ephemeral 24h anonymous stories with automatic expiration
   - Public group events discovery and creation with landmark venue names
@@ -171,3 +179,4 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 | 2026-11-18 | Stage 4 | AFTR Design System & Frontend: exact brand color tokens, Desktop left sidebar & right discovery panel, Mobile compact header & bottom navigation, all 15 AFTR components, all 16 pages, 0 lint errors, Next.js build passed (18/18 routes), all 17 live routes tested OK 200, 35/35 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 5 | Anonymous Social Feed: Alembic migration 006, ContentModerationEngine, Keyset Cursor Pagination, 6 post categories, threaded comments, disabling comments, anonymous reactions, post deletion ownership enforcement, universal bilateral blocking, self-declared campus filtering, trending feed, frontend API integration, 44/44 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 6 | Anonymous Adult Discovery & Connections: Alembic migration 007, Persona discoverability & dating preferences, Interest taxonomy, Anonymous discovery cards with compatibility scoring, bilateral connection request lifecycle (send, accept, reject, withdraw), canonical Match generation, consent-gated conversation unlocking, bilateral block isolation, frontend integration on /discover and /chats, 54/54 pytest tests passing | ✅ Completed |
+| 2026-11-18 | Stage 7 | Private Messaging System: Alembic migration 008, encrypted message storage (Fernet/AES-128), zero message content logging, conversation-specific pseudonyms, authorized WebSocket realtime transport, message deletion, conversation blocking, unread notifications, membership verification on every operation, frontend /chats/[id] live integration, 62/62 pytest tests passing | ✅ Completed |

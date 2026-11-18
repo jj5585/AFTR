@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.app.models.persona import Persona, CampusAffiliation, Interest, PersonaInterest
+from backend.app.models.base import utc_now
 from backend.app.models.connection import (
     ConnectionRequest,
     ConnectionRequestStatus,
@@ -15,6 +16,7 @@ from backend.app.models.connection import (
     ConversationParticipant,
     Message,
 )
+from backend.app.core.encryption import encrypt_message_content
 from backend.app.core.pagination import encode_cursor, decode_cursor
 from backend.app.schemas.social import PersonaPublicResponse
 from backend.app.schemas.discovery import (
@@ -543,25 +545,42 @@ class DiscoveryService:
         conv = (await db.execute(conv_stmt)).scalar_one_or_none()
 
         if not conv:
+            now_dt = utc_now()
             conv = Conversation(
                 connection_request_id=req.id,
                 match_id=match.id,
                 is_active=True,
+                last_message_at=now_dt if req.note else None,
             )
             db.add(conv)
             await db.flush()
 
-            # Add participants
-            db.add(ConversationParticipant(conversation_id=conv.id, persona_id=req.sender_persona_id))
-            db.add(ConversationParticipant(conversation_id=conv.id, persona_id=req.recipient_persona_id))
+            # Add participants with conversation-specific pseudonyms
+            p1_pseudo = f"Echo-{req.sender_persona_id.hex[:4].upper()}"
+            p2_pseudo = f"Shadow-{req.recipient_persona_id.hex[:4].upper()}"
 
-            # If note was included in connection request, create first message from sender
+            db.add(ConversationParticipant(
+                conversation_id=conv.id,
+                persona_id=req.sender_persona_id,
+                conversation_pseudonym=p1_pseudo,
+                last_read_at=now_dt if req.note else None,
+            ))
+            db.add(ConversationParticipant(
+                conversation_id=conv.id,
+                persona_id=req.recipient_persona_id,
+                conversation_pseudonym=p2_pseudo,
+                last_read_at=None,
+            ))
+
+            # If note was included in connection request, create first message from sender (encrypted)
             if req.note:
+                encrypted_note = encrypt_message_content(req.note)
                 db.add(
                     Message(
                         conversation_id=conv.id,
                         sender_persona_id=req.sender_persona_id,
-                        content=req.note,
+                        content=encrypted_note,
+                        is_encrypted=True,
                     )
                 )
 

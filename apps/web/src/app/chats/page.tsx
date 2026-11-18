@@ -12,7 +12,7 @@ import {
   FixtureConversation,
   FixtureChatRequest,
 } from "@/lib/fixtures";
-import { discoveryApi } from "@/lib/api";
+import { discoveryApi, messagingApi } from "@/lib/api";
 
 export default function ChatsPage() {
   const [activeTab, setActiveTab] = useState<"conversations" | "requests">("conversations");
@@ -45,26 +45,46 @@ export default function ChatsPage() {
         setRequests(FIXTURE_CHAT_REQUESTS);
       }
 
-      // 2. Fetch live mutual matches / active conversations
-      const matches = await discoveryApi.fetchMatches();
-      if (matches && matches.length > 0) {
-        const mappedConvs: FixtureConversation[] = matches.map((m) => ({
-          id: m.conversation_id || m.id,
+      // 2. Fetch live conversations with unread counts & conversation pseudonyms
+      const liveConvs = await messagingApi.fetchConversations();
+      if (liveConvs && liveConvs.length > 0) {
+        const mappedConvs: FixtureConversation[] = liveConvs.map((c) => ({
+          id: c.id,
           other_persona: {
-            id: m.matched_persona.id,
-            display_name: m.matched_persona.display_name,
-            avatar_seed: m.matched_persona.avatar_seed,
-            declared_campus: m.matched_persona.declared_campus || undefined,
+            id: c.other_participant.persona_id,
+            display_name: c.other_participant.conversation_pseudonym || c.other_participant.display_name,
+            avatar_seed: c.other_participant.avatar_seed,
+            declared_campus: c.other_participant.declared_campus || undefined,
             is_active: true,
           },
-          last_message: "Connection accepted! Direct chat unlocked.",
-          last_message_at: m.created_at,
-          unread_count: 0,
-          is_active: true,
+          last_message: c.last_message_preview || "Direct connection active.",
+          last_message_at: c.last_message_at || c.created_at,
+          unread_count: c.unread_count,
+          is_active: c.is_active,
         }));
         setConversations(mappedConvs);
       } else {
-        setConversations(FIXTURE_CONVERSATIONS);
+        // Fallback to mutual matches
+        const matches = await discoveryApi.fetchMatches();
+        if (matches && matches.length > 0) {
+          const mappedConvs: FixtureConversation[] = matches.map((m) => ({
+            id: m.conversation_id || m.id,
+            other_persona: {
+              id: m.matched_persona.id,
+              display_name: m.matched_persona.display_name,
+              avatar_seed: m.matched_persona.avatar_seed,
+              declared_campus: m.matched_persona.declared_campus || undefined,
+              is_active: true,
+            },
+            last_message: "Connection accepted! Direct chat unlocked.",
+            last_message_at: m.created_at,
+            unread_count: 0,
+            is_active: true,
+          }));
+          setConversations(mappedConvs);
+        } else {
+          setConversations(FIXTURE_CONVERSATIONS);
+        }
       }
     } catch {
       // Graceful fallback to fixtures in local development

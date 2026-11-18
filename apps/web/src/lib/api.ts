@@ -499,3 +499,155 @@ export const discoveryApi = {
     }
   },
 };
+
+export interface ChatMessageItem {
+  id: string;
+  conversation_id: string;
+  sender_persona_id: string;
+  sender_pseudonym: string;
+  content: string;
+  is_mine: boolean;
+  is_deleted: boolean;
+  created_at: string;
+}
+
+export interface ConversationSummaryItem {
+  id: string;
+  other_participant: {
+    persona_id: string;
+    conversation_pseudonym: string;
+    display_name: string;
+    avatar_seed: string;
+    declared_campus?: string | null;
+    is_online: boolean;
+  };
+  my_conversation_pseudonym: string;
+  last_message_preview?: string | null;
+  last_message_at?: string | null;
+  unread_count: number;
+  is_active: boolean;
+  is_blocked: boolean;
+  created_at: string;
+}
+
+export const messagingApi = {
+  async fetchConversations(): Promise<ConversationSummaryItem[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/conversations`, {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async fetchUnreadCount(): Promise<{ total_unread_messages: number; unread_conversations_count: number }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/conversations/unread-count`, {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { total_unread_messages: 0, unread_conversations_count: 0 };
+    }
+  },
+
+  async fetchConversationDetail(conversationId: string): Promise<unknown> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}`, {
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async fetchMessages(conversationId: string, cursor?: string): Promise<{ items: ChatMessageItem[]; next_cursor?: string | null; has_more: boolean }> {
+    try {
+      const q = new URLSearchParams();
+      if (cursor) q.append("cursor", cursor);
+      const res = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/messages?${q.toString()}`, {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], has_more: false };
+    }
+  },
+
+  async sendMessage(conversationId: string, content: string): Promise<ChatMessageItem> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async deleteMessage(messageId: string): Promise<ChatMessageItem> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/messages/${messageId}`, {
+      method: "DELETE",
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async blockConversation(conversationId: string, reason?: string): Promise<unknown> {
+    const q = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+    const res = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/block${q}`, {
+      method: "POST",
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async markConversationRead(conversationId: string): Promise<void> {
+    await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/read`, {
+      method: "POST",
+      headers: {
+        ...getAuthHeader(),
+      },
+    }).catch(() => {});
+  },
+
+  getWebSocketUrl(conversationId: string): string {
+    const wsBase = API_BASE_URL.replace(/^http/, "ws");
+    let token = "";
+    if (typeof window !== "undefined") {
+      token = localStorage.getItem("aftr_access_token") || localStorage.getItem("supabase_token") || "";
+    }
+    return `${wsBase}/api/v1/ws/conversations/${conversationId}?token=${encodeURIComponent(token)}`;
+  },
+};
