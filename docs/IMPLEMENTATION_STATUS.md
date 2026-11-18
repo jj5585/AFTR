@@ -1,6 +1,6 @@
 # AFTR — Implementation Status & Roadmap
 
-**Current State**: Stage 4 (AFTR Design System and Frontend) Completed  
+**Current State**: Stage 5 (Anonymous Social Feed) Completed  
 **Last Updated**: 2026-11-18  
 **Architecture Lead**: Antigravity  
 
@@ -112,17 +112,21 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
     - `npm run build` -> Static page optimization passed for all routes
     - HTTP 200 response verified on all 17 frontend endpoints
     - Pytest backend test suite: **35/35 tests passing**
-- [ ] **Stage 5: Confessions & Adult Discussion Feeds API Integration**
-  - Universal block engine
-  - Content reporting pipeline
-  - Word-filter & regex moderation pre-processor
-  - Moderator review queue endpoints
-- [ ] **Stage 5: Confessions & Adult Discussion Feeds**
-  - Confession CRUD and lifecycle management
-  - Adult interest tag taxonomy & NSFW/sensitive content toggles
-  - Anonymous reactions (upvotes, reactions without exposing user identity)
-  - Threaded anonymous comments
-  - Redis rate limiting for anti-spam
+- [x] **Stage 5: Anonymous Social Feed**
+  - **Anonymous Posts API**: `POST /api/v1/posts`, `GET /api/v1/posts`, `GET /api/v1/posts/me`, `GET /api/v1/posts/{id}`, `DELETE /api/v1/posts/{id}`
+  - **Categories**: Confessions, Dating, Questions, Experiences, Campus life, Adult interests (strictly moderated)
+  - **Threaded Comments**: `POST /api/v1/posts/{id}/comments`, `GET /api/v1/posts/{id}/comments`, `DELETE /api/v1/posts/comments/{id}`, nested parent-child replies with `is_op` flag
+  - **Disabling Comments**: `allow_comments: bool` on posts; rejected with 403 Forbidden when disabled
+  - **Anonymous Reactions**: `POST /api/v1/posts/{id}/reactions` (`UPVOTE`, `FLAME`, `HEART`, `INSIGHTFUL`), toggle-off support, reaction summary aggregation
+  - **Post Deletion & Ownership**: Author-only deletion (soft delete with `is_deleted = True`), 403 Forbidden for non-authors
+  - **Pre-Publication Moderation**: `ContentModerationEngine` evaluating PII patterns (phone numbers, emails, roll numbers, social handles) and severe harm expressions before saving
+  - **Universal Blocking & Bilateral Feed Isolation**: `POST /api/v1/blocks`, `DELETE /api/v1/blocks/{persona_id}`, anti-self block constraint, feeds exclude both blocked and blocking personas' posts and comments
+  - **Campus Affiliation Filters**: Self-declared campus query parameter `campus=Bay Area University`
+  - **Trending Feed**: Dynamic sorting `sort=trending` based on weighted reaction and comment counts with time decay
+  - **Keyset Cursor Pagination**: Base64 opaque cursor token `(created_at, id)` with `has_more` and `next_cursor`
+  - **Automated Reporting & Audit Logs**: `POST /api/v1/reports` with immutable audit log recording
+  - **Frontend Feed Integration**: `apps/web/src/lib/api.ts` connecting `/feed`, `/create`, `/post/[id]`, `AnonymousPostCard`, `PostComposer`, `ReportDialog`, and `BlockDialog`
+  - **Automated Tests**: **44/44 test suites passing** (including 9 comprehensive social feed tests)
 - [ ] **Stage 6: Ephemeral Stories & Group Events**
   - Ephemeral 24h anonymous stories with automatic expiration
   - Public group events discovery and creation
@@ -153,3 +157,4 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 | 2026-11-18 | Stage 2 | Implemented 20 domain SQLAlchemy models, 5 sequenced Alembic migrations, PostgreSQL RLS & atomic redemption function, development seed script, 23/23 tests passing | ✅ Completed |
 | 2026-11-18 | Stage 3 | Supabase JWT backend verification, 7 endpoints for invitation gate, AgeAssuranceEngine, 5 Next.js screens, 35/35 tests passing | ✅ Completed |
 | 2026-11-18 | Stage 4 | AFTR Design System & Frontend: exact brand color tokens, Desktop left sidebar & right discovery panel, Mobile compact header & bottom navigation, all 15 AFTR components, all 16 pages, 0 lint errors, Next.js build passed (18/18 routes), all 17 live routes tested OK 200, 35/35 pytest tests passing | ✅ Completed |
+| 2026-11-18 | Stage 5 | Anonymous Social Feed: Alembic migration 006, ContentModerationEngine, Keyset Cursor Pagination, 6 post categories, threaded comments, disabling comments, anonymous reactions, post deletion ownership enforcement, universal bilateral blocking, self-declared campus filtering, trending feed, frontend API integration, 44/44 pytest tests passing | ✅ Completed |

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Modal } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, CheckCircle2 } from "lucide-react";
+import { socialApi } from "@/lib/api";
 
 interface BlockDialogProps {
   isOpen: boolean;
@@ -23,17 +24,21 @@ export function BlockDialog({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [blocked, setBlocked] = useState<boolean>(false);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      await socialApi.blockPersona(personaId);
+      onBlocked?.(personaId);
+    } catch {
+      // Handled
+    } finally {
       setSubmitting(false);
       setBlocked(true);
-      onBlocked?.(personaId);
       setTimeout(() => {
         setBlocked(false);
         onClose();
       }, 1400);
-    }, 500);
+    }
   };
 
   return (

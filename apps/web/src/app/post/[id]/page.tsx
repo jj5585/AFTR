@@ -1,64 +1,99 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { ArrowLeft, MessageSquare, Flag, ShieldAlert, MoreHorizontal, EyeOff, Eye } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  MessageSquare,
+  Flag,
+  ShieldAlert,
+  MoreHorizontal,
+  EyeOff,
+  Eye,
+  Trash2,
+  RefreshCw,
+} from "lucide-react";
 import { AppShell } from "@/components/navigation/AppShell";
 import { AnonymousPersona } from "@/components/aftr/AnonymousPersona";
 import { ReactionBar } from "@/components/aftr/ReactionBar";
 import { CommentList } from "@/components/aftr/CommentList";
 import { ReportDialog } from "@/components/aftr/ReportDialog";
 import { BlockDialog } from "@/components/aftr/BlockDialog";
-import { FIXTURE_POSTS, FIXTURE_COMMENTS, CURRENT_USER_PERSONA, FixtureComment } from "@/lib/fixtures";
+import { FIXTURE_POSTS, FIXTURE_COMMENTS, FixturePost, FixtureComment } from "@/lib/fixtures";
+import { socialApi } from "@/lib/api";
 
 export default function PostDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const postId = params.id as string;
 
-  const post = FIXTURE_POSTS.find((p) => p.id === postId) || FIXTURE_POSTS[0];
-
-  const [comments, setComments] = useState<FixtureComment[]>(
-    FIXTURE_COMMENTS.filter((c) => c.post_id === post.id)
-  );
+  const [post, setPost] = useState<FixturePost>(() => {
+    return FIXTURE_POSTS.find((p) => p.id === postId) || FIXTURE_POSTS[0];
+  });
+  const [comments, setComments] = useState<FixtureComment[]>(() => {
+    return FIXTURE_COMMENTS.filter((c) => c.post_id === postId);
+  });
   const [showSensitive, setShowSensitive] = useState<boolean>(!post.is_sensitive);
   const [reportOpen, setReportOpen] = useState<boolean>(false);
   const [blockOpen, setBlockOpen] = useState<boolean>(false);
   const [showMenu, setShowMenu] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const handleAddComment = (content: string, parentId?: string) => {
-    if (parentId) {
-      setComments((prev) =>
-        prev.map((c) => {
-          if (c.id === parentId) {
-            const newReply: FixtureComment = {
-              id: `c-rep-${Date.now()}`,
-              post_id: post.id,
-              persona: CURRENT_USER_PERSONA,
-              content,
-              created_at: new Date().toISOString(),
-              is_op: false,
-            };
-            return {
-              ...c,
-              replies: [...(c.replies || []), newReply],
-            };
-          }
-          return c;
-        })
-      );
-    } else {
-      const newComment: FixtureComment = {
-        id: `c-${Date.now()}`,
-        post_id: post.id,
-        persona: CURRENT_USER_PERSONA,
-        content,
-        created_at: new Date().toISOString(),
-        is_op: false,
-        replies: [],
-      };
-      setComments((prev) => [newComment, ...prev]);
+  const loadData = useCallback(async () => {
+    try {
+      const [fetchedPost, fetchedComments] = await Promise.all([
+        socialApi.fetchPost(postId),
+        socialApi.fetchComments(postId),
+      ]);
+      setPost(fetchedPost);
+      setComments(fetchedComments);
+      setShowSensitive(!fetchedPost.is_sensitive);
+    } catch {
+      // Keep fixture fallback
+    } finally {
+      setIsLoading(false);
     }
+  }, [postId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleAddComment = async (content: string, parentId?: string) => {
+    try {
+      const newComment = await socialApi.addComment(post.id, content, parentId);
+      if (parentId) {
+        setComments((prev) =>
+          prev.map((c) => {
+            if (c.id === parentId) {
+              return {
+                ...c,
+                replies: [...(c.replies || []), newComment],
+              };
+            }
+            return c;
+          })
+        );
+      } else {
+        setComments((prev) => [newComment, ...prev]);
+      }
+    } catch {
+      // Handled
+    }
+  };
+
+  const handleDeletePost = async () => {
+    try {
+      await socialApi.deletePost(post.id);
+      router.push("/feed");
+    } catch {
+      // Handled
+    }
+  };
+
+  const handleReact = (type: "upvote" | "flame" | "heart" | "insightful") => {
+    socialApi.reactToPost(post.id, type.toUpperCase());
   };
 
   const formatTimeAgo = (dateStr: string) => {
@@ -74,6 +109,17 @@ export default function PostDetailPage() {
       return "recently";
     }
   };
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="max-w-2xl mx-auto py-20 text-center space-y-3">
+          <RefreshCw className="w-6 h-6 text-[#9B72CF] animate-spin mx-auto" />
+          <p className="text-xs text-[#A49BAF]">Decrypting post details...</p>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -142,6 +188,14 @@ export default function PostDetailPage() {
                       <ShieldAlert className="w-3.5 h-3.5" />
                       Block Persona
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleDeletePost}
+                      className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-[#E56A75] hover:bg-[#1C1923]"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete Post
+                    </button>
                   </div>
                 )}
               </div>
@@ -174,6 +228,7 @@ export default function PostDetailPage() {
               initialUpvotes={post.upvotes_count}
               initialReactions={post.reactions}
               userHasReacted={post.user_has_reacted}
+              onReact={handleReact}
             />
 
             <div className="flex items-center gap-1.5 text-xs text-[#A49BAF]">

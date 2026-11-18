@@ -49,6 +49,27 @@ class Post(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         default=0,
         nullable=False,
     )
+    allow_comments: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    moderation_status: Mapped[str] = mapped_column(
+        String(20),
+        default="PUBLISHED",
+        index=True,
+        nullable=False,
+    )
+    campus_name: Mapped[Optional[str]] = mapped_column(
+        String(120),
+        index=True,
+        nullable=True,
+    )
 
     # Relationships
     persona: Mapped["Persona"] = relationship(
@@ -84,6 +105,11 @@ class Comment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     content: Mapped[str] = mapped_column(
         Text,
+        nullable=False,
+    )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
         nullable=False,
     )
 

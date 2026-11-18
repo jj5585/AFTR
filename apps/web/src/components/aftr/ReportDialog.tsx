@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Modal } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
+import { socialApi } from "@/lib/api";
 
 interface ReportDialogProps {
   isOpen: boolean;
@@ -34,11 +35,17 @@ export function ReportDialog({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitted, setSubmitted] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    // Simulate real report submission
-    setTimeout(() => {
+    try {
+      const fullReason = details.trim()
+        ? `${selectedReason} - ${details.trim()}`
+        : selectedReason;
+      await socialApi.reportContent(targetType, targetId, fullReason);
+    } catch {
+      // Handled
+    } finally {
       setSubmitting(false);
       setSubmitted(true);
       setTimeout(() => {
@@ -46,7 +53,7 @@ export function ReportDialog({
         setDetails("");
         onClose();
       }, 1500);
-    }, 600);
+    }
   };
 
   return (

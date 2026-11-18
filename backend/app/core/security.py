@@ -9,6 +9,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import settings
@@ -192,7 +193,9 @@ async def get_current_persona(
 ) -> Persona:
     """Dependency: Get active anonymous persona for the authenticated account."""
     result = await db.execute(
-        select(Persona).where(Persona.account_id == account.id, Persona.is_active == True)
+        select(Persona)
+        .options(selectinload(Persona.campus_affiliations))
+        .where(Persona.account_id == account.id, Persona.is_active == True)
     )
     persona = result.scalar_one_or_none()
     if not persona:
@@ -201,3 +204,31 @@ async def get_current_persona(
             detail="Anonymous persona profile has not been created yet.",
         )
     return persona
+
+
+async def get_optional_persona(
+    auth_header: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[Persona]:
+    """Dependency: Extract persona if Authorization Bearer header is present, otherwise return None."""
+    if not auth_header or not auth_header.credentials:
+        return None
+    try:
+        payload = decode_supabase_jwt(auth_header.credentials)
+        sub = payload.get("sub")
+        if not sub:
+            return None
+        user_uuid = uuid.UUID(sub)
+        account_res = await db.execute(
+            select(Account).where(Account.supabase_user_id == user_uuid)
+        )
+        account = account_res.scalar_one_or_none()
+        if not account or account.status != AccountStatus.ACTIVE:
+            return None
+        persona_res = await db.execute(
+            select(Persona).where(Persona.account_id == account.id, Persona.is_active == True)
+        )
+        return persona_res.scalar_one_or_none()
+    except Exception:
+        return None
+

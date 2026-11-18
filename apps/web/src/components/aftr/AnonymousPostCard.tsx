@@ -2,28 +2,49 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { MessageSquare, MoreHorizontal, ShieldAlert, Flag, Eye, EyeOff } from "lucide-react";
+import { MessageSquare, MoreHorizontal, ShieldAlert, Flag, Eye, EyeOff, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnonymousPersona } from "./AnonymousPersona";
 import { ReactionBar } from "./ReactionBar";
 import { ReportDialog } from "./ReportDialog";
 import { BlockDialog } from "./BlockDialog";
 import { FixturePost } from "@/lib/fixtures";
+import { socialApi } from "@/lib/api";
 
 interface AnonymousPostCardProps {
   post: FixturePost;
   onPostUpdated?: (post: FixturePost) => void;
+  onPostDeleted?: (postId: string) => void;
   className?: string;
 }
 
 export function AnonymousPostCard({
   post,
+  onPostDeleted,
   className = "",
 }: AnonymousPostCardProps) {
   const [showSensitive, setShowSensitive] = useState<boolean>(!post.is_sensitive);
   const [showMenu, setShowMenu] = useState<boolean>(false);
   const [reportOpen, setReportOpen] = useState<boolean>(false);
   const [blockOpen, setBlockOpen] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  const handleDelete = async () => {
+    setShowMenu(false);
+    setIsDeleting(true);
+    try {
+      await socialApi.deletePost(post.id);
+      onPostDeleted?.(post.id);
+    } catch {
+      // Handled
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleReact = (type: "upvote" | "flame" | "heart" | "insightful") => {
+    socialApi.reactToPost(post.id, type.toUpperCase());
+  };
 
   const formatTimeAgo = (dateStr: string) => {
     try {
@@ -109,6 +130,15 @@ export function AnonymousPostCard({
                       <ShieldAlert className="w-3.5 h-3.5" />
                       Block Persona
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-[#E56A75] hover:bg-[#1C1923]"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {isDeleting ? "Deleting..." : "Delete Post"}
+                    </button>
                   </div>
                 )}
               </div>
@@ -159,6 +189,7 @@ export function AnonymousPostCard({
               initialUpvotes={post.upvotes_count}
               initialReactions={post.reactions}
               userHasReacted={post.user_has_reacted}
+              onReact={handleReact}
             />
 
             <Link

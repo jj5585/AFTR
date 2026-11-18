@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { ShieldAlert, Send, EyeOff, CheckCircle2 } from "lucide-react";
+import { ShieldAlert, Send, EyeOff, CheckCircle2, MessageSquare, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnonymousPersona } from "./AnonymousPersona";
 import { CATEGORIES, CURRENT_USER_PERSONA, FixturePost } from "@/lib/fixtures";
+import { socialApi } from "@/lib/api";
 
 interface PostComposerProps {
   onPostCreated?: (newPost: Partial<FixturePost>) => void;
@@ -42,8 +43,10 @@ export function PostComposer({
   const [tag, setTag] = useState<string>(defaultCategory);
   const [postType, setPostType] = useState<"CONFESSION" | "DISCUSSION">("CONFESSION");
   const [isSensitive, setIsSensitive] = useState<boolean>(false);
+  const [allowComments, setAllowComments] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [published, setPublished] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const MAX_CHARS = 1000;
 
@@ -63,29 +66,31 @@ export function PostComposer({
   const isOverLimit = content.length > MAX_CHARS;
   const canSubmit = content.trim().length >= 10 && !hasPII && !isOverLimit && !submitting;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
 
     setSubmitting(true);
-    setTimeout(() => {
-      const created: Partial<FixturePost> = {
-        id: `post-${Date.now()}`,
-        persona: CURRENT_USER_PERSONA,
+    setErrorMsg(null);
+    try {
+      const created = await socialApi.createPost({
         content: content.trim(),
-        post_type: postType,
         tag: tag === "all" ? "campus-life" : tag,
+        post_type: postType,
         is_sensitive: isSensitive,
-        upvotes_count: 0,
-        comments_count: 0,
-        created_at: new Date().toISOString(),
-      };
+        allow_comments: allowComments,
+      });
+
       onPostCreated?.(created);
-      setSubmitting(false);
       setPublished(true);
       setContent("");
       setTimeout(() => setPublished(false), 2500);
-    }, 500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to publish post";
+      setErrorMsg(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -170,8 +175,16 @@ export function PostComposer({
               </div>
             )}
 
+            {/* Error Banner */}
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-[#E56A75]/15 border border-[#E56A75]/40 flex items-start gap-2.5 text-xs text-[#E56A75]">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
             {/* Category and Sensitive Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-[#2D283B]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-[#2D283B] flex-wrap">
               {/* Category Picker */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[#A49BAF]">Tag:</span>
@@ -189,7 +202,7 @@ export function PostComposer({
               </div>
 
               {/* Sensitive Toggle */}
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-[#A49BAF] select-none hover:text-[#F6F1FA]">
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs text-[#A49BAF] select-none hover:text-[#F6F1FA]">
                 <input
                   type="checkbox"
                   checked={isSensitive}
@@ -197,7 +210,19 @@ export function PostComposer({
                   className="rounded bg-[#111016] border-[#2D283B] text-[#9B72CF] focus:ring-0 accent-[#9B72CF]"
                 />
                 <EyeOff className="w-3.5 h-3.5 text-[#DCA7E8]" />
-                <span>Mark as sensitive / adult discussion</span>
+                <span>Sensitive</span>
+              </label>
+
+              {/* Allow Comments Toggle (Product Rule: Users can disable comments) */}
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs text-[#A49BAF] select-none hover:text-[#F6F1FA]">
+                <input
+                  type="checkbox"
+                  checked={allowComments}
+                  onChange={(e) => setAllowComments(e.target.checked)}
+                  className="rounded bg-[#111016] border-[#2D283B] text-[#9B72CF] focus:ring-0 accent-[#9B72CF]"
+                />
+                <MessageSquare className="w-3.5 h-3.5 text-[#9B72CF]" />
+                <span>Allow comments</span>
               </label>
 
               {/* Submit Button */}
