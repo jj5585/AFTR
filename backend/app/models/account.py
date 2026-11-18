@@ -47,6 +47,21 @@ class Account(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         default=AccountStatus.ACTIVE,
         nullable=False,
     )
+    role: Mapped[str] = mapped_column(
+        String(30),
+        default="USER",
+        index=True,
+        nullable=False,
+    )  # "USER", "MODERATOR", "SECURITY_ADMIN"
+    mfa_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    mfa_secret: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+    )
 
     # Decoupled relationships
     personas: Mapped[List["Persona"]] = relationship(

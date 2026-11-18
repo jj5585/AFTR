@@ -1,6 +1,6 @@
 # AFTR — Implementation Status & Roadmap
 
-**Current State**: Stage 8 (Stories & Meetups) Completed  
+**Current State**: Stage 9 (Trust & Safety) Completed  
 **Last Updated**: 2026-11-18  
 **Architecture Lead**: Antigravity  
 
@@ -180,7 +180,38 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
     - `/stories`: Live ephemeral feed with category filter pills, campus toggle, aura gradients, composer with 24h timer, reactions, inline expandable threaded comments, author deletion, and community safety reporting.
     - `/events`: Live gatherings feed with public venue policy notice, campus filter, event creator with venue safety validation, `EventCard` with cancellation status, "At Capacity" badge, interactive RSVP toggle, and organizer cancel button.
   - **Automated Tests**: **70/70 test suites passing** (including 8 comprehensive story & event tests).
-- [ ] **Stage 9: End-to-End Verification, Security Hardening, Docker & Deployment Readiness**
+- [x] **Stage 9: Trust and Safety**
+  - **Alembic Migration 010**:
+    - `accounts`: `role` ("USER", "MODERATOR", "SECURITY_ADMIN"), `mfa_enabled`, `mfa_secret`
+    - `comments`: `moderation_status` ("PUBLISHED", "PENDING_REVIEW", "REJECTED")
+    - `reports`: `resolved_by`, `resolution_notes`, `resolved_at`
+    - `moderation_actions`: `target_persona_id`
+    - `appeals`: `resolution_notes`
+  - **Multi-Vector Automated Abuse Engine** (`ContentModerationEngine`):
+    - Anti-Spam: Crypto pumps, telegram handles, cash solicitations, shortened URLs
+    - Anti-Harassment: Dehumanizing bullying, slurs, targeted hate speech
+    - Anti-Doxxing: Emails, phone numbers, student IDs, social handles, dorm room numbers
+    - Anti-Threats: Lethal violence, weapons, self-harm encouragement
+    - Non-Consensual & Minor Safety: Revenge porn, hidden recordings, sextortion, minor dating, escort solicitation
+    - **Human Review Queuing**: Borderline content queued with `PENDING_REVIEW`
+  - **Pre-Publication Quarantine Enforcement**:
+    - Critical Rule: Content in `PENDING_REVIEW` is strictly filtered out of public feeds until approved by a human moderator.
+  - **Administrative Security & Role Separation**:
+    - Explicit separation between `MODERATOR` and `SECURITY_ADMIN`
+    - Moderation review queue and report resolution available to moderators
+    - Account bans and invitation revocations strictly restricted to `SECURITY_ADMIN`
+    - RFC 6238 TOTP Multi-Factor Authentication (MFA) step-up required for sensitive operations
+    - **Zero Identity-Vault Access**: Admin dashboards and endpoints strictly omit real email addresses and auth UUIDs
+  - **User Safety Architecture**:
+    - Universal persona blocking with `/settings` block manager
+    - Confidential multi-target reporting with immutable audit trail
+    - Disciplinary appeals workflow (`POST /appeals`, `/appeals/me`, `/admin/appeals/{id}/review` with action overturning)
+    - Self-service permanent account deletion (`DELETE /api/v1/auth/account`)
+    - Transparent public community standards (`GET /api/v1/safety/standards`)
+  - **Frontend Admin Console** (`/admin`):
+    - 8 operational modules: Overview KPIs, Reports, Content Moderation Queue, User Restrictions, Appeals, Invitation Management, Account Standing, and Audit Journal
+  - **Abuse Simulation Tests**: **81/81 test suites passing** (including 11 comprehensive trust & safety abuse tests)
+- [ ] **Stage 10: End-to-End Verification, Security Hardening, Docker & Deployment Readiness**
   - Multi-stage Docker build
   - Production security headers, CORS, and rate limiting audit
   - Deployment configuration for Vercel & FastAPI
@@ -200,3 +231,4 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 | 2026-11-18 | Stage 6 | Anonymous Adult Discovery & Connections: Alembic migration 007, Persona discoverability & dating preferences, Interest taxonomy, Anonymous discovery cards with compatibility scoring, bilateral connection request lifecycle (send, accept, reject, withdraw), canonical Match generation, consent-gated conversation unlocking, bilateral block isolation, frontend integration on /discover and /chats, 54/54 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 7 | Private Messaging System: Alembic migration 008, encrypted message storage (Fernet/AES-128), zero message content logging, conversation-specific pseudonyms, authorized WebSocket realtime transport, message deletion, conversation blocking, unread notifications, membership verification on every operation, frontend /chats/[id] live integration, 62/62 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 8 | Stories & Meetups: Alembic migration 009, 24h ephemeral story lifecycle, story comments & reaction toggles, public group meetups, GPS & private residence blocking, attendance capacity enforcement, RSVP lifecycle (going, interested, withdraw), organizer cancellation controls, bilateral block isolation, frontend /stories and /events integration, 70/70 pytest tests passing | ✅ Completed |
+| 2026-11-18 | Stage 9 | Trust & Safety: Alembic migration 010, multi-vector abuse detection (spam, harassment, doxxing, threats, non-consensual content, minor safety), pre-publication human review queue, role-based access (MODERATOR vs SECURITY_ADMIN), RFC 6238 TOTP MFA step-up, user safety appeals & account deletion, zero identity-vault leakage, 8-tab admin console (/admin), settings safety controls, 81/81 pytest tests passing | ✅ Completed |

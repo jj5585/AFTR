@@ -880,3 +880,441 @@ export const eventsApi = {
     return await res.json();
   },
 };
+
+export interface AdminOverviewData {
+  pending_reports_count: number;
+  pending_review_queue_count: number;
+  pending_appeals_count: number;
+  total_active_accounts: number;
+  suspended_personas_count: number;
+  banned_accounts_count: number;
+  total_moderation_actions: number;
+  recent_actions: Array<{
+    id: string;
+    action_type: string;
+    target_type: string;
+    reason: string;
+    created_at: string;
+  }>;
+}
+
+export interface ReportItem {
+  id: string;
+  target_type: string;
+  target_id: string;
+  reason: string;
+  status: string;
+  reporter_persona_name?: string;
+  reporter_persona_id: string;
+  resolved_by?: string | null;
+  resolution_notes?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+  content_excerpt?: string | null;
+}
+
+export interface ModerationQueueItemData {
+  target_type: string;
+  target_id: string;
+  content: string;
+  category?: string | null;
+  campus_name?: string | null;
+  moderation_status: string;
+  author_persona_id: string;
+  author_persona_name: string;
+  author_avatar_seed: string;
+  flagged_reasons: string[];
+  reports_count: number;
+  created_at: string;
+}
+
+export interface AppealItemData {
+  id: string;
+  moderation_action_id: string;
+  appellant_persona_id: string;
+  reason: string;
+  status: string;
+  reviewed_at?: string | null;
+  resolution_notes?: string | null;
+  created_at: string;
+  action_details?: {
+    action_type: string;
+    reason: string;
+    target_type: string;
+  } | null;
+}
+
+export interface AdminInvitationItemData {
+  id: string;
+  inviter_persona_name?: string | null;
+  recipient_email_masked: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
+  redeemed_at?: string | null;
+}
+
+export interface AdminAccountItemData {
+  id: string;
+  status: string;
+  role: string;
+  personas_count: number;
+  persona_display_names: string[];
+  invite_quota: number;
+  is_age_verified: boolean;
+  strike_count: number;
+  created_at: string;
+}
+
+export interface AuditLogItemData {
+  id: string;
+  actor_type: string;
+  action: string;
+  target_type?: string | null;
+  target_id?: string | null;
+  ip_hash?: string | null;
+  details?: string | null;
+  created_at: string;
+}
+
+export interface BlockedPersonaItemData {
+  persona_id: string;
+  display_name: string;
+  avatar_seed: string;
+  reason?: string | null;
+  blocked_at: string;
+}
+
+export interface CommunityStandardRuleData {
+  category: string;
+  title: string;
+  description: string;
+  enforcement: string;
+}
+
+export const adminApi = {
+  async fetchOverview(): Promise<AdminOverviewData | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/overview`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return null;
+    }
+  },
+
+  async fetchReports(params: { status?: string; target_type?: string; limit?: number; offset?: number } = {}): Promise<{
+    items: ReportItem[];
+    total: number;
+    pending_count: number;
+  }> {
+    try {
+      const q = new URLSearchParams();
+      if (params.status) q.append("status", params.status);
+      if (params.target_type) q.append("target_type", params.target_type);
+      if (params.limit) q.append("limit", params.limit.toString());
+      if (params.offset) q.append("offset", params.offset.toString());
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/reports?${q.toString()}`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], total: 0, pending_count: 0 };
+    }
+  },
+
+  async resolveReport(reportId: string, action: string, notes?: string): Promise<ReportItem> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/admin/reports/${reportId}/resolve`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ action, notes }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async fetchModerationQueue(params: { limit?: number; offset?: number } = {}): Promise<{
+    items: ModerationQueueItemData[];
+    total: number;
+  }> {
+    try {
+      const q = new URLSearchParams();
+      if (params.limit) q.append("limit", params.limit.toString());
+      if (params.offset) q.append("offset", params.offset.toString());
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/moderation/queue?${q.toString()}`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], total: 0 };
+    }
+  },
+
+  async makeModerationDecision(targetType: string, targetId: string, action: "APPROVE" | "TAKEDOWN", reason?: string): Promise<unknown> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/admin/moderation/${targetType}/${targetId}/decision`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ action, reason }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async applyRestriction(
+    targetPersonaId: string,
+    actionType: string,
+    reason: string,
+    strikeCount = 1,
+    mfaCode?: string
+  ): Promise<unknown> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    };
+    if (mfaCode) {
+      headers["X-Admin-MFA"] = mfaCode;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/v1/admin/restrictions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        target_persona_id: targetPersonaId,
+        action_type: actionType,
+        reason,
+        strike_count: strikeCount,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async fetchAppeals(params: { status?: string; limit?: number; offset?: number } = {}): Promise<{
+    items: AppealItemData[];
+    total: number;
+    pending_count: number;
+  }> {
+    try {
+      const q = new URLSearchParams();
+      if (params.status) q.append("status", params.status);
+      if (params.limit) q.append("limit", params.limit.toString());
+      if (params.offset) q.append("offset", params.offset.toString());
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/appeals?${q.toString()}`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], total: 0, pending_count: 0 };
+    }
+  },
+
+  async reviewAppeal(appealId: string, decision: "APPROVE" | "REJECT", resolutionNotes?: string): Promise<AppealItemData> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/admin/appeals/${appealId}/review`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ decision, resolution_notes: resolutionNotes }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async fetchInvitations(params: { limit?: number; offset?: number } = {}): Promise<{
+    items: AdminInvitationItemData[];
+    total: number;
+  }> {
+    try {
+      const q = new URLSearchParams();
+      if (params.limit) q.append("limit", params.limit.toString());
+      if (params.offset) q.append("offset", params.offset.toString());
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/invitations?${q.toString()}`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], total: 0 };
+    }
+  },
+
+  async revokeInvitation(invitationId: string): Promise<unknown> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/admin/invitations/${invitationId}/revoke`, {
+      method: "POST",
+      headers: { ...getAuthHeader() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async fetchAccounts(params: { limit?: number; offset?: number } = {}): Promise<{
+    items: AdminAccountItemData[];
+    total: number;
+  }> {
+    try {
+      const q = new URLSearchParams();
+      if (params.limit) q.append("limit", params.limit.toString());
+      if (params.offset) q.append("offset", params.offset.toString());
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/accounts?${q.toString()}`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], total: 0 };
+    }
+  },
+
+  async fetchAuditLogs(params: { action?: string; limit?: number; offset?: number } = {}): Promise<{
+    items: AuditLogItemData[];
+    total: number;
+  }> {
+    try {
+      const q = new URLSearchParams();
+      if (params.action) q.append("action", params.action);
+      if (params.limit) q.append("limit", params.limit.toString());
+      if (params.offset) q.append("offset", params.offset.toString());
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/audit-logs?${q.toString()}`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], total: 0 };
+    }
+  },
+
+  async setupMfa(): Promise<{ secret: string; otpauth_url: string; instruction: string }> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/admin/mfa/setup`, {
+      method: "POST",
+      headers: { ...getAuthHeader() },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  async verifyMfa(code: string): Promise<unknown> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/admin/mfa/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+};
+
+export const safetyApi = {
+  async fetchMyBlocks(): Promise<BlockedPersonaItemData[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/blocks`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async unblockPersona(personaId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/blocks/${personaId}`, {
+      method: "DELETE",
+      headers: { ...getAuthHeader() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+  },
+
+  async submitAppeal(moderationActionId: string, reason: string): Promise<AppealItemData> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/appeals`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ moderation_action_id: moderationActionId, reason }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async fetchMyAppeals(): Promise<AppealItemData[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/appeals/me`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async fetchCommunityStandards(): Promise<CommunityStandardRuleData[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/safety/standards`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return data.rules || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async deleteAccount(): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/account`, {
+      method: "DELETE",
+      headers: { ...getAuthHeader() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+  },
+};
+

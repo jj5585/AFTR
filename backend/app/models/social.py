@@ -112,6 +112,12 @@ class Comment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         default=False,
         nullable=False,
     )
+    moderation_status: Mapped[str] = mapped_column(
+        String(20),
+        default="PUBLISHED",
+        index=True,
+        nullable=False,
+    )
 
     # Relationships
     post: Mapped["Post"] = relationship(

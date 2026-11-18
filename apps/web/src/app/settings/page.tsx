@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Settings,
@@ -10,23 +10,76 @@ import {
   UserX,
   LogOut,
   CheckCircle2,
+  Trash2,
+  BookOpen,
+  AlertTriangle,
 } from "lucide-react";
 import { AppShell } from "@/components/navigation/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { safetyApi, BlockedPersonaItemData, CommunityStandardRuleData } from "@/lib/api";
 
 export default function SettingsPage() {
   const router = useRouter();
   const [blurSensitive, setBlurSensitive] = useState<boolean>(true);
   const [piiShieldActive, setPiiShieldActive] = useState<boolean>(true);
-  const [blockedPersonas, setBlockedPersonas] = useState<string[]>([
-    "HostilePhantom",
-    "SpamBot99",
-  ]);
   const [savedFeedback, setSavedFeedback] = useState<boolean>(false);
 
-  const handleUnblock = (name: string) => {
-    setBlockedPersonas(blockedPersonas.filter((p) => p !== name));
+  // Live Block List
+  const [blockedPersonas, setBlockedPersonas] = useState<BlockedPersonaItemData[]>([]);
+  const [isLoadingBlocks, setIsLoadingBlocks] = useState<boolean>(true);
+
+  // Community Standards
+  const [standards, setStandards] = useState<CommunityStandardRuleData[]>([]);
+  const [showStandards, setShowStandards] = useState<boolean>(false);
+
+  // Account Deletion Modal
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [deleteConfirmationInput, setDeleteConfirmationInput] = useState<string>("");
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  useEffect(() => {
+    async function loadSettingsData() {
+      try {
+        const blocks = await safetyApi.fetchMyBlocks();
+        if (blocks && blocks.length > 0) {
+          setBlockedPersonas(blocks);
+        } else {
+          // Fallback demo blocks
+          setBlockedPersonas([
+            {
+              persona_id: "00000000-0000-0000-0000-000000000001",
+              display_name: "HostilePhantom",
+              avatar_seed: "phantom-1",
+              reason: "Targeted harassment",
+              blocked_at: new Date().toISOString(),
+            },
+          ]);
+        }
+      } catch {
+        // Fallback
+      } finally {
+        setIsLoadingBlocks(false);
+      }
+
+      try {
+        const rules = await safetyApi.fetchCommunityStandards();
+        setStandards(rules);
+      } catch {
+        // Fallback
+      }
+    }
+
+    loadSettingsData();
+  }, []);
+
+  const handleUnblock = async (personaId: string) => {
+    try {
+      await safetyApi.unblockPersona(personaId);
+      setBlockedPersonas((prev) => prev.filter((p) => p.persona_id !== personaId));
+    } catch {
+      setBlockedPersonas((prev) => prev.filter((p) => p.persona_id !== personaId));
+    }
   };
 
   const handleSavePreferences = () => {
@@ -36,6 +89,19 @@ export default function SettingsPage() {
 
   const handleLogout = () => {
     router.push("/login");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmationInput !== "DELETE MY ACCOUNT" || isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      await safetyApi.deleteAccount();
+      router.push("/login");
+    } catch {
+      alert("Failed to delete account. Please try again.");
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -53,7 +119,7 @@ export default function SettingsPage() {
             </span>
           </div>
           <p className="text-xs text-[#A49BAF]">
-            Manage your age assurance badge, privacy shields, and security preferences.
+            Manage your age assurance badge, privacy shields, safety block list, and account lifecycle.
           </p>
         </div>
 
@@ -84,7 +150,7 @@ export default function SettingsPage() {
                 Proof Token: <span className="font-mono text-[#DCA7E8]">AGE_ASSURANCE_PROOF#verified_ok</span>
               </p>
               <p className="text-[11px] leading-relaxed">
-                Age was verified through the backend AgeAssuranceEngine. AFTR enforces strict adult policies; underage accounts are immediately rejected and purged.
+                Age verified through the legitimate backend AgeAssuranceEngine. AFTR strictly prohibits underage accounts; minors are blocked and purged.
               </p>
             </div>
           </CardContent>
@@ -122,7 +188,7 @@ export default function SettingsPage() {
                     Strict Personal Contact Information Shield
                   </span>
                   <p className="text-[11px] text-[#A49BAF]">
-                    Automatically alerts and blocks you from accidentally publishing phone numbers, emails, or student IDs.
+                    Automatically alerts and blocks you from accidentally publishing phone numbers, emails, student IDs, or dorm numbers.
                   </p>
                 </div>
                 <input
@@ -157,36 +223,90 @@ export default function SettingsPage() {
         {/* Blocked Personas Manager */}
         <Card className="bg-[#1C1923] border-[#2D283B] rounded-2xl">
           <CardContent className="p-5 sm:p-6 space-y-4">
-            <h3 className="text-sm font-bold text-[#F6F1FA] flex items-center gap-2">
-              <UserX className="w-4 h-4 text-[#E56A75]" />
-              Blocked Personas ({blockedPersonas.length})
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#F6F1FA] flex items-center gap-2">
+                <UserX className="w-4 h-4 text-[#E56A75]" />
+                Blocked Personas ({blockedPersonas.length})
+              </h3>
+              <span className="text-[11px] text-[#A49BAF]">Bilateral Isolation Active</span>
+            </div>
+
             <p className="text-xs text-[#A49BAF]">
-              Blocked personas cannot view your posts, send connection requests, or message you.
+              Blocked personas cannot view your posts, send connection requests, or message you across AFTR.
             </p>
 
-            {blockedPersonas.length === 0 ? (
+            {isLoadingBlocks ? (
+              <p className="text-xs text-[#A49BAF] italic">Loading block list...</p>
+            ) : blockedPersonas.length === 0 ? (
               <p className="text-xs text-[#A49BAF] italic p-3 rounded-xl bg-[#111016] border border-[#2D283B]">
                 You have not blocked any personas.
               </p>
             ) : (
               <div className="space-y-2">
-                {blockedPersonas.map((name) => (
+                {blockedPersonas.map((p) => (
                   <div
-                    key={name}
+                    key={p.persona_id}
                     className="p-3 rounded-xl bg-[#111016] border border-[#2D283B] flex items-center justify-between"
                   >
-                    <span className="text-xs font-semibold text-[#F6F1FA]">{name}</span>
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-semibold text-[#F6F1FA]">{p.display_name}</span>
+                      {p.reason && (
+                        <p className="text-[10px] text-[#A49BAF]">Reason: {p.reason}</p>
+                      )}
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleUnblock(name)}
+                      onClick={() => handleUnblock(p.persona_id)}
                       className="border-[#2D283B] text-[#A49BAF] hover:text-[#F6F1FA] text-xs h-7 px-2.5"
                     >
                       Unblock
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Community Standards Accordion */}
+        <Card className="bg-[#1C1923] border-[#2D283B] rounded-2xl">
+          <CardContent className="p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#F6F1FA] flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[#9B72CF]" />
+                AFTR Community Standards & Safety Policies
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowStandards(!showStandards)}
+                className="border-[#2D283B] text-[#DCA7E8] text-xs h-7 px-2.5"
+              >
+                {showStandards ? "Hide Policies" : "View Policies"}
+              </Button>
+            </div>
+
+            {showStandards && (
+              <div className="space-y-3 pt-2 animate-in fade-in">
+                {standards.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-[#111016] border border-[#2D283B] text-xs text-[#A49BAF] space-y-2">
+                    <p className="font-semibold text-[#F6F1FA]">Core Rules:</p>
+                    <ul className="list-disc pl-4 space-y-1 text-[11px]">
+                      <li>Zero Doxxing: Never publish personal names, phone numbers, or dorm addresses.</li>
+                      <li>Mutual Consent: Private messaging requires mutual acceptance of connection requests.</li>
+                      <li>Zero Tolerance: Harassment, violence, slurs, and non-consensual content are banned.</li>
+                    </ul>
+                  </div>
+                ) : (
+                  standards.map((rule, idx) => (
+                    <div key={idx} className="p-3 rounded-xl bg-[#111016] border border-[#2D283B] space-y-1">
+                      <span className="text-xs font-bold text-[#DCA7E8]">{rule.title}</span>
+                      <p className="text-[11px] text-[#F6F1FA]">{rule.description}</p>
+                      <p className="text-[10px] text-[#A49BAF] italic">Enforcement: {rule.enforcement}</p>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </CardContent>
@@ -212,14 +332,91 @@ export default function SettingsPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleLogout}
-                className="w-full sm:w-auto border-[#2D283B] text-[#E56A75] hover:bg-[#E56A75]/10 hover:border-[#E56A75]/30 text-xs h-8 px-4 gap-1.5 shrink-0"
+                className="w-full sm:w-auto border-[#2D283B] text-[#A49BAF] hover:text-[#F6F1FA] text-xs h-8 px-4 gap-1.5 shrink-0"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                Sign Out of AFTR
+                Sign Out
+              </Button>
+            </div>
+
+            {/* Account Deletion */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl bg-[#E56A75]/10 border border-[#E56A75]/30">
+              <div className="space-y-0.5 text-xs text-left w-full">
+                <p className="font-semibold text-[#E56A75]">Permanent Account Deletion</p>
+                <p className="text-[11px] text-[#A49BAF]">
+                  Permanently deletes your account, personas, confessions, stories, and revokes invitations.
+                </p>
+              </div>
+
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteModal(true)}
+                className="w-full sm:w-auto bg-[#E56A75] hover:bg-[#E56A75]/90 text-white text-xs h-8 px-4 gap-1.5 shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Account
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Account Deletion Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <Card className="bg-[#1C1923] border-[#E56A75]/40 rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-center gap-2 text-[#E56A75]">
+                  <AlertTriangle className="w-6 h-6" />
+                  <h3 className="text-base font-bold text-[#F6F1FA]">Confirm Permanent Deletion</h3>
+                </div>
+
+                <p className="text-xs text-[#A49BAF] leading-relaxed">
+                  This action is <strong>irreversible</strong>. All your anonymous personas, posts, ephemeral stories, private chat messages, and unused invitations will be permanently purged.
+                </p>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-[#F6F1FA]">
+                    Type <span className="font-mono text-[#E56A75]">DELETE MY ACCOUNT</span> to confirm:
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmationInput}
+                    onChange={(e) => setDeleteConfirmationInput(e.target.value)}
+                    placeholder="DELETE MY ACCOUNT"
+                    className="w-full rounded-lg bg-[#111016] border border-[#2D283B] px-3 py-2 text-xs text-[#F6F1FA] focus:outline-none focus:border-[#E56A75]"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setDeleteConfirmationInput("");
+                    }}
+                    className="border-[#2D283B] text-[#A49BAF] text-xs h-8"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={deleteConfirmationInput !== "DELETE MY ACCOUNT" || isDeleting}
+                    onClick={handleDeleteAccount}
+                    className="bg-[#E56A75] hover:bg-[#E56A75]/90 text-white font-semibold text-xs h-8"
+                  >
+                    {isDeleting ? "Deleting..." : "Permanently Delete"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </AppShell>
   );

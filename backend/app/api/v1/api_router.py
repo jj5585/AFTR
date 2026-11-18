@@ -8,6 +8,7 @@ from backend.app.api.v1.discovery import discovery_router, connections_router
 from backend.app.api.v1.messaging import router as messaging_router
 from backend.app.api.v1.stories import router as stories_router
 from backend.app.api.v1.events import router as events_router
+from backend.app.api.v1.admin import router as admin_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -20,3 +21,4 @@ api_router.include_router(connections_router)
 api_router.include_router(messaging_router)
 api_router.include_router(stories_router)
 api_router.include_router(events_router)
+api_router.include_router(admin_router)

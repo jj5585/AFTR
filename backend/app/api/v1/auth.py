@@ -104,3 +104,18 @@ async def recover_password(req: PasswordRecoveryRequest):
     return PasswordRecoveryResponse(
         message="If this email is registered, password recovery instructions have been dispatched."
     )
+
+
+@router.delete("/account", status_code=status.HTTP_200_OK)
+async def delete_my_account(
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    User Safety: Self-service account deletion.
+    Permanently revokes unredeemed invitations, deactivates all personas,
+    and soft-deletes user content.
+    """
+    from backend.app.services.trust_and_safety_service import TrustAndSafetyService
+    return await TrustAndSafetyService.delete_user_account(db, account)
+

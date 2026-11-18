@@ -87,6 +87,19 @@ class Report(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         index=True,
         nullable=False,
     )
+    resolved_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    resolution_notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
 
 class ModerationAction(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -101,6 +114,12 @@ class ModerationAction(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Uuid(as_uuid=True),
         index=True,
         nullable=False,
+    )
+    target_persona_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("personas.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
     )
     action_type: Mapped[ModerationActionType] = mapped_column(
         SQLEnum(ModerationActionType, native_enum=False, length=30),
@@ -155,6 +174,10 @@ class Appeal(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
+        nullable=True,
+    )
+    resolution_notes: Mapped[Optional[str]] = mapped_column(
+        Text,
         nullable=True,
     )
 

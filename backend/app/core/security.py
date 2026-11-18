@@ -1,12 +1,15 @@
+import base64
 import hashlib
 import hmac
 import secrets
+import struct
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Header, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -231,4 +234,101 @@ async def get_optional_persona(
         return persona_res.scalar_one_or_none()
     except Exception:
         return None
+
+
+# --- Administrative Security & Role-Based Access Control ---
+
+def generate_mfa_secret() -> str:
+    """Generate high-entropy RFC 6238 Base32 secret for administrator MFA."""
+    return base64.b32encode(secrets.token_bytes(20)).decode("utf-8").replace("=", "")
+
+
+def get_totp_code(secret_b32: str, interval: int = 30) -> str:
+    """Generate current 6-digit TOTP code using standard RFC 6238."""
+    # Add padding if needed
+    padded = secret_b32.upper() + "=" * ((8 - len(secret_b32) % 8) % 8)
+    key = base64.b32decode(padded, casefold=True)
+    counter = int(time.time() // interval)
+    msg = struct.pack(">Q", counter)
+    digest = hmac.new(key, msg, hashlib.sha1).digest()
+    offset = digest[19] & 0x0F
+    code = (struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1000000
+    return f"{code:06d}"
+
+
+def verify_totp(secret_b32: str, code: str, interval: int = 30, window: int = 1) -> bool:
+    """Verify 6-digit TOTP code with time-drift window (+/- 30 seconds)."""
+    if not secret_b32 or not code:
+        return False
+    try:
+        padded = secret_b32.upper() + "=" * ((8 - len(secret_b32) % 8) % 8)
+        key = base64.b32decode(padded, casefold=True)
+    except Exception:
+        return False
+
+    clean_code = code.strip()
+    current_counter = int(time.time() // interval)
+    for c in range(current_counter - window, current_counter + window + 1):
+        msg = struct.pack(">Q", c)
+        digest = hmac.new(key, msg, hashlib.sha1).digest()
+        offset = digest[19] & 0x0F
+        expected = f"{(struct.unpack('>I', digest[offset:offset + 4])[0] & 0x7FFFFFFF) % 1000000:06d}"
+        if hmac.compare_digest(expected, clean_code):
+            return True
+    return False
+
+
+async def require_moderator(
+    account: Account = Depends(get_current_account),
+) -> Account:
+    """
+    Dependency: Enforce that caller has at least MODERATOR privileges.
+    Permits MODERATOR and SECURITY_ADMIN roles.
+    Rejects normal USERs with 403 Forbidden.
+    """
+    if account.role not in ("MODERATOR", "SECURITY_ADMIN"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrative access denied: Moderator or Security Administrator role required.",
+        )
+    return account
+
+
+async def require_security_admin(
+    account: Account = Depends(get_current_account),
+) -> Account:
+    """
+    Dependency: Enforce that caller has SECURITY_ADMIN privileges.
+    Strictly isolates security admin operations (account bans, quota adjustments, audit log export)
+    from standard content moderators.
+    Rejects normal USERs and standard MODERATORs with 403 Forbidden.
+    """
+    if account.role != "SECURITY_ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrative access denied: Security Administrator role required for this sensitive operation.",
+        )
+    return account
+
+
+def verify_admin_mfa_stepup(
+    account: Account,
+    x_admin_mfa: Optional[str] = Header(None, alias="X-Admin-MFA"),
+) -> None:
+    """
+    Dependency / Guard: For sensitive operations, verify MFA step-up authentication.
+    If MFA is enabled on the account, requires valid 6-digit TOTP code in X-Admin-MFA header.
+    """
+    if account.mfa_enabled and account.mfa_secret:
+        if not x_admin_mfa:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="MFA Step-Up required: Provide valid 6-digit code in X-Admin-MFA header for sensitive operation.",
+            )
+        if not verify_totp(account.mfa_secret, x_admin_mfa):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="MFA Verification failed: Invalid or expired code.",
+            )
+
 
