@@ -4,18 +4,16 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
 from backend.app.core.config import settings
+from backend.app.models.base import Base
 
-
-# Use TEST_DATABASE_URL if ENVIRONMENT is "test"
+# Active database URL based on environment
 active_db_url = (
     settings.TEST_DATABASE_URL
     if settings.ENVIRONMENT == "test"
     else settings.DATABASE_URL
 )
 
-# SQLite in aiosqlite requires special handling for memory connection or relative paths
 connect_args = {}
 if active_db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
@@ -34,10 +32,6 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
     expire_on_commit=False,
 )
-
-
-class Base(DeclarativeBase):
-    pass
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
