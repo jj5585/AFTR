@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aftr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aftr_user
+      POSTGRES_PASSWORD: aftr_password
+      POSTGRES_DB: aftr_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - aftr_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aftr_user -d aftr_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aftr-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - aftr_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: aftr-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "True"
+      DATABASE_URL: postgresql+asyncpg://aftr_user:aftr_password@postgres:5432/aftr_db
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-insecure-docker-dev-secret-key-replace-in-prod}
+      SUPABASE_URL: ${SUPABASE_URL:-https://placeholder.supabase.co}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-placeholder-jwt-secret}
+    ports:
+      - "8000:8000"
+
+volumes:
+  aftr_pgdata:
+  aftr_redisdata:
