@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_db
 from backend.app.core.security import get_current_account, get_current_persona
+from backend.app.core.rate_limiter import auth_rate_limiter
 from backend.app.models.account import Account
 from backend.app.models.persona import Persona, CampusAffiliation
 from backend.app.services.age_assurance import (
@@ -23,7 +24,7 @@ from backend.app.schemas.auth import (
 router = APIRouter(prefix="/auth", tags=["Authentication & Age Gate"])
 
 
-@router.post("/age/initiate", response_model=AgeVerificationInitiateResponse)
+@router.post("/age/initiate", response_model=AgeVerificationInitiateResponse, dependencies=[Depends(auth_rate_limiter)])
 async def initiate_age_assurance(req: AgeVerifyInitiateRequest):
     """
     Step 1 of Age Assurance:
@@ -95,7 +96,7 @@ async def logout(account: Account = Depends(get_current_account)):
     return {"message": "Successfully logged out."}
 
 
-@router.post("/recover-password", response_model=PasswordRecoveryResponse)
+@router.post("/recover-password", response_model=PasswordRecoveryResponse, dependencies=[Depends(auth_rate_limiter)])
 async def recover_password(req: PasswordRecoveryRequest):
     """
     Trigger password recovery through Supabase Auth.

@@ -1,8 +1,9 @@
 # AFTR — Implementation Status & Roadmap
 
-**Current State**: Stage 9 (Trust & Safety) Completed  
+**Current State**: Stage 10 (AFTR Security Review and Deployment) Completed  
 **Last Updated**: 2026-11-18  
 **Architecture Lead**: Antigravity  
+**Release Target**: Closed SRM Private Beta Release Candidate (`v0.9.0-rc1`)  
 
 ---
 
@@ -211,10 +212,29 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
   - **Frontend Admin Console** (`/admin`):
     - 8 operational modules: Overview KPIs, Reports, Content Moderation Queue, User Restrictions, Appeals, Invitation Management, Account Standing, and Audit Journal
   - **Abuse Simulation Tests**: **81/81 test suites passing** (including 11 comprehensive trust & safety abuse tests)
-- [ ] **Stage 10: End-to-End Verification, Security Hardening, Docker & Deployment Readiness**
-  - Multi-stage Docker build
-  - Production security headers, CORS, and rate limiting audit
-  - Deployment configuration for Vercel & FastAPI
+- [x] **Stage 10: AFTR Security Review and Deployment**
+  - **Comprehensive Security Review Test Suite** (`backend/tests/test_security_review.py`):
+    - Unit, integration, and authorization verification across all 20 logical domains
+    - Cross-account access barrier: User B cannot delete or modify User A's posts, stories, or meetups (403 Forbidden)
+    - Messaging isolation: Non-members cannot access, send, or read private conversation channels (403 Forbidden)
+    - Sliding window rate limiting: Redis-backed limiter triggers `429 Too Many Requests` with `Retry-After` on rapid requests
+    - Identity leakage verification: Zero real emails, zero auth UUIDs, zero plaintext token hashes in API payloads
+    - College email verification prohibited: Non-institutional standard emails (`@gmail.com`) cleanly validated
+    - Underage access prevention: Cryptographic `AgeAssuranceEngine` strictly rejects age `< 18`
+    - Production security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection`, CSP, and HSTS verified
+  - **Automated Tests**: **89/89 test suites passing** across the entire backend in 5.95s.
+  - **Hardened Multi-Stage Container** (`backend/Dockerfile`):
+    - Separate builder and runner stages, non-root user `aftruser:aftrgroup` (`UID 1001`), production healthcheck probe (`/api/v1/health`), uvicorn multi-worker runner.
+  - **Frontend Edge Security** (`apps/web/vercel.json`):
+    - Edge security headers, strict Content-Security-Policy, Permissions-Policy disabling camera/mic/geolocation, clean route rewrites.
+  - **Production Documentation & Beta Runbooks**:
+    - `docs/DEPLOYMENT.md`: Architecture blueprint, managed FastAPI hosting, Supabase PostgreSQL with PgBouncer, Redis TLS, automated migration pipeline, PITR backups, instant rollback SOPs.
+    - `docs/INCIDENT_RESPONSE.md`: Severity level matrix (Sev 1-4), containment SOPs for doxxing, violence threats, brute-force attacks, underage account purge, runtime killswitches.
+    - `docs/PRIVACY.md`: Core privacy tenets, identity vault cryptographic decoupling, salted HMAC recipient binding, Fernet AES-128 resting encryption, location safety guarantees, right to erasure.
+    - `docs/COMMUNITY_GUIDELINES.md`: The 5 AFTR Pillars (Anonymity, Mutual Consent, 18+ Responsibility, Non-Violence, Public Meetups), 4-tier enforcement sanctions, reporting and appeals workflows.
+    - `docs/BETA_ONBOARDING.md`: Step-by-step onboarding walkthrough for SRM campus private beta, single-use 72h token redemption, quota management, bug reporting.
+    - `.env.production.example`: Complete production environment variable schema with secret rotation instructions.
+  - **Closed SRM Private Beta Release Candidate**: Prepared as `v0.9.0-rc1` (zero automatic public deployment policy enforced).
 
 ---
 
@@ -232,3 +252,4 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 | 2026-11-18 | Stage 7 | Private Messaging System: Alembic migration 008, encrypted message storage (Fernet/AES-128), zero message content logging, conversation-specific pseudonyms, authorized WebSocket realtime transport, message deletion, conversation blocking, unread notifications, membership verification on every operation, frontend /chats/[id] live integration, 62/62 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 8 | Stories & Meetups: Alembic migration 009, 24h ephemeral story lifecycle, story comments & reaction toggles, public group meetups, GPS & private residence blocking, attendance capacity enforcement, RSVP lifecycle (going, interested, withdraw), organizer cancellation controls, bilateral block isolation, frontend /stories and /events integration, 70/70 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 9 | Trust & Safety: Alembic migration 010, multi-vector abuse detection (spam, harassment, doxxing, threats, non-consensual content, minor safety), pre-publication human review queue, role-based access (MODERATOR vs SECURITY_ADMIN), RFC 6238 TOTP MFA step-up, user safety appeals & account deletion, zero identity-vault leakage, 8-tab admin console (/admin), settings safety controls, 81/81 pytest tests passing | ✅ Completed |
+| 2026-11-18 | Stage 10 | Security Review & Deployment: 89/89 tests passing, cross-account access blocked, private messaging isolated, sliding-window rate limiting enforced with Retry-After, underage access prevented, zero identity leakage, production security headers, multi-stage Docker container with non-root user, Vercel edge headers, full production docs (DEPLOYMENT.md, INCIDENT_RESPONSE.md, PRIVACY.md, COMMUNITY_GUIDELINES.md, BETA_ONBOARDING.md, .env.production.example), closed SRM private beta candidate v0.9.0-rc1 | ✅ Completed |

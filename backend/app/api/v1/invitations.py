@@ -16,6 +16,7 @@ from backend.app.core.security import (
     verify_claim_ticket,
     get_current_account,
 )
+from backend.app.core.rate_limiter import invitation_rate_limiter
 from backend.app.models.account import Account
 from backend.app.models.base import ensure_utc
 from backend.app.models.persona import Persona, CampusAffiliation
@@ -176,7 +177,7 @@ async def get_invitation_quota(
     )
 
 
-@router.post("/validate", response_model=InvitationValidateResponse)
+@router.post("/validate", response_model=InvitationValidateResponse, dependencies=[Depends(invitation_rate_limiter)])
 async def validate_invitation(
     req: InvitationValidateRequest,
     db: AsyncSession = Depends(get_db),
