@@ -1,6 +1,6 @@
 # AFTR — Implementation Status & Roadmap
 
-**Current State**: Stage 2 (Database Implementation & Schema Architecture) Completed  
+**Current State**: Stage 3 (Authentication and Invitation Gate) Completed  
 **Last Updated**: 2026-11-18  
 **Architecture Lead**: Antigravity  
 
@@ -13,11 +13,11 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 ### Non-Negotiable Architectural Principles
 | Rule | Status | Implementation Mechanism |
 | :--- | :---: | :--- |
-| **Invitation-only** | ✅ Enforced (DB) | Bound token hash, 72h TTL, single-use, 3 invites per user, atomic redemption function |
-| **No college email verification** | ✅ Enforced | Explicitly omitted; only salted hashes stored for auth binding |
-| **No mandatory college ID** | ✅ Enforced | Prohibited; `campus_affiliations` is optional and self-declared |
-| **Age assurance (18+)** | ✅ Enforced (DB) | `is_age_verified` boolean & `birth_year` on `accounts` |
-| **Identity / Social separation** | ✅ Enforced (DB) | `accounts` table strictly partitioned from `personas` table |
+| **Invitation-only** | ✅ Enforced (API & Frontend) | All protected routes require verified invitation-redeemed account; strict 72h TTL; 3 slots |
+| **No college email verification** | ✅ Enforced | Explicitly omitted; recipient email binding via salted HMAC hashes; no `.edu` requirements |
+| **No mandatory college ID** | ✅ Enforced | Prohibited; `campus_affiliations` is purely self-declared and optional |
+| **Age assurance (18+)** | ✅ Enforced (Engine & Gate) | Legitimate `AgeAssuranceEngine` generating signed cryptographic proof tokens; no fake checkboxes |
+| **Identity / Social separation** | ✅ Enforced | `accounts` (auth credentials/email hash/quota) strictly decoupled from `personas` (display name/avatar) |
 | **Consent-based messaging** | ✅ Enforced (DB) | `connection_requests` required before `conversations` and `messages` |
 | **Blocking & Reporting** | ✅ Enforced (DB) | `blocks` table with anti-self block constraint & `reports` table |
 | **Automated & Human Moderation** | ✅ Enforced (DB) | `moderation_actions`, `appeals`, and immutable `audit_logs` |
@@ -42,43 +42,30 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
   - Packages: `@aftr/shared-types`, `@aftr/validation`
   - Health & liveness verification bridges
 - [x] **Stage 2: Database Implementation & Relational Schemas**
-  - 20 Logical Domains mapped to SQLAlchemy 2.0 ORM models:
-    1. Account and identity (`accounts`)
-    2. Anonymous personas (`personas`)
-    3. Invitations (`invitations`)
-    4. Self-declared campus affiliations (`campus_affiliations`)
-    5. Posts (`posts`)
-    6. Comments (`comments`)
-    7. Reactions (`reactions`)
-    8. Stories (`stories`)
-    9. Interests (`interests`, `persona_interests`)
-    10. Connection requests (`connection_requests`)
-    11. Matches (`matches`)
-    12. Conversations (`conversations`, `conversation_participants`)
-    13. Messages (`messages`)
-    14. Events (`events`)
-    15. Event attendees (`event_attendees`)
-    16. Blocks (`blocks`)
-    17. Reports (`reports`)
-    18. Moderation actions (`moderation_actions`)
-    19. Appeals (`appeals`)
-    20. Audit logs (`audit_logs`)
-  - 5 Sequenced & Applied Alembic Migrations:
-    - `001_initial_schema`: Core domain tables, UUID PKs, UTC timestamps, indexes
-    - `002_security_lockdown`: Immutable audit logs, RLS policies, `aftr_app` role grant
-    - `003_integrity`: Connections, matches, conversations, blocks, reports, moderation
-    - `004_invitation_system`: 72h bound invitations, quota checks, check constraints
-    - `005_invitation_hardening`: Single-use & revocation integrity, `aftr_redeem_invitation_atomic` PL/pgSQL function
+  - 20 Logical Domains mapped to SQLAlchemy 2.0 ORM models
+  - 5 Sequenced & Applied Alembic Migrations (`001` through `005`)
+  - PostgreSQL Row Level Security (RLS) & PL/pgSQL atomic redemption function
   - Development seed script (`backend/scripts/seed.py`)
-  - Automated test suite: 23/23 tests passing (foreign key cascades, invitation expiry, single-use races, account isolation, persona ownership, conversation membership)
-- [ ] **Stage 3: Auth Verification, Age Assurance, & Strict Invitation System APIs**
-  - Supabase JWT backend verification dependency
-  - Single-use, 72h TTL invitations bound to recipient identifier endpoints
-  - 3-invite quota allocation on qualification
-  - Age assurance gate (18+)
-  - Server-side authorization & RBAC
+- [x] **Stage 3: Authentication and Invitation Gate**
+  - Supabase JWT backend verification dependency (`get_current_account`, `get_current_persona`)
+  - Complete Invitation Gate Endpoints:
+    - `POST /api/v1/invitations` (Issue 72h single-use invitation, decrement quota)
+    - `GET /api/v1/invitations` (List user's issued invitations)
+    - `GET /api/v1/invitations/quota` (Quota metrics: 3 slots max, remaining, issued, redeemed)
+    - `POST /api/v1/invitations/validate` (Public check for VALID, EXPIRED, REVOKED, ALREADY_REDEEMED, NOT_FOUND)
+    - `POST /api/v1/invitations/claim` (Recipient email binding validation, returns 30-min signed claim ticket)
+    - `POST /api/v1/invitations/redeem` (Atomic redemption, age proof validation, account & persona creation)
+    - `DELETE /api/v1/invitations/{id}` (Revocation of unredeemed invitations)
+  - Legitimate Age Assurance Engine (`AgeAssuranceEngine` with signed `AGE_ASSURANCE_PROOF` tokens)
+  - Auth APIs: `/auth/age/initiate`, `/auth/age/verify`, `/auth/me`, `/auth/logout`, `/auth/recover-password`
+  - Frontend Screens:
+    - `/login`: Email & password authentication with invite-only notice
+    - `/register`: Invitation gate redirector
+    - `/invite`: 32-character token entry
+    - `/invite/[token]`: Live validation and state screens (`VALID`, `EXPIRED`, `REVOKED`, `ALREADY_REDEEMED`, `NOT_FOUND`)
+    - `/onboarding`: 4-step guided onboarding (Age Assurance, Policies, Anonymous Persona setup, Entrance)
+  - Automated Tests: **35/35 test suites passing**
 - [ ] **Stage 4: Anonymous Personas, Safety, Moderation & Reporting Foundation**
-  - Anonymous persona generator & customizable pseudonyms/avatars
   - Universal block engine
   - Content reporting pipeline
   - Word-filter & regex moderation pre-processor
@@ -100,12 +87,10 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
   - Consent-based 1-on-1 private messaging (unlocked strictly upon acceptance)
   - Real-time messaging support (WebSocket / Redis PubSub)
 - [ ] **Stage 8: Frontend Application Feature Integration**
-  - Onboarding, invite code validation, and age assurance flow
   - Anonymous feed UI (Confessions, Stories, Events)
   - Connections & Consent-Based Chat interface
   - Reporting & Safety UI triggers
 - [ ] **Stage 9: End-to-End Verification, Security Hardening, Docker & Deployment Readiness**
-  - Integration and end-to-end test suite
   - Multi-stage Docker build
   - Production security headers, CORS, and rate limiting audit
   - Deployment configuration for Vercel & FastAPI
@@ -119,3 +104,4 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 | 2026-11-18 | Stage 0 | Project inspection, system dependency check, architecture blueprint, threat modeling | ✅ Completed |
 | 2026-11-18 | Stage 1 | Monorepo layout, Next.js App Router, FastAPI modular monolith, PostgreSQL & Redis containers, Alembic, `@aftr/shared-types`, `@aftr/validation`, test harness, verified live health bridge | ✅ Completed |
 | 2026-11-18 | Stage 2 | Implemented 20 domain SQLAlchemy models, 5 sequenced Alembic migrations, PostgreSQL RLS & atomic redemption function, development seed script, 23/23 tests passing | ✅ Completed |
+| 2026-11-18 | Stage 3 | Supabase JWT backend verification, 7 endpoints for invitation gate, AgeAssuranceEngine, 5 Next.js screens, 35/35 tests passing | ✅ Completed |

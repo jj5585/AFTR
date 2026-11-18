@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Supabase Auth
     SUPABASE_URL: str = "https://placeholder.supabase.co"
     SUPABASE_ANON_KEY: str = "placeholder-anon-key"
-    SUPABASE_JWT_SECRET: str = "placeholder-jwt-secret"
+    SUPABASE_JWT_SECRET: str = "placeholder-jwt-secret-min-32-bytes-secure-aftr"
     SUPABASE_SERVICE_ROLE_KEY: str = "placeholder-service-role-key"
     
     # Business Rules
