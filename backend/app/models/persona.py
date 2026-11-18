@@ -33,6 +33,29 @@ class Persona(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         default=True,
         nullable=False,
     )
+    is_discoverable: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        index=True,
+        nullable=False,
+    )
+    relationship_intention: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        index=True,
+        nullable=True,
+    )
+    min_age_preference: Mapped[int] = mapped_column(
+        default=18,
+        nullable=False,
+    )
+    max_age_preference: Mapped[int] = mapped_column(
+        default=99,
+        nullable=False,
+    )
+    dating_preferences_json: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
 
     # Relationships
     account: Mapped["Account"] = relationship(

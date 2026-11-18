@@ -40,6 +40,19 @@ class ConnectionRequest(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         index=True,
         nullable=False,
     )
+    note: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    sender_persona: Mapped["Persona"] = relationship(
+        "Persona",
+        foreign_keys=[sender_persona_id],
+    )
+    recipient_persona: Mapped["Persona"] = relationship(
+        "Persona",
+        foreign_keys=[recipient_persona_id],
+    )
 
     __table_args__ = (
         UniqueConstraint("sender_persona_id", "recipient_persona_id", name="uq_sender_recipient_connection"),
@@ -66,6 +79,15 @@ class Match(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Float,
         default=0.0,
         nullable=False,
+    )
+
+    persona_a: Mapped["Persona"] = relationship(
+        "Persona",
+        foreign_keys=[persona_a_id],
+    )
+    persona_b: Mapped["Persona"] = relationship(
+        "Persona",
+        foreign_keys=[persona_b_id],
     )
 
     __table_args__ = (

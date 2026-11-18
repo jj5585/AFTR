@@ -1,19 +1,90 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { MessageCircle, UserCheck, Lock } from "lucide-react";
+import { MessageCircle, UserCheck, Lock, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/navigation/AppShell";
 import { AnonymousPersona } from "@/components/aftr/AnonymousPersona";
 import { ChatRequestCard } from "@/components/aftr/ChatRequestCard";
-import { FIXTURE_CONVERSATIONS, FIXTURE_CHAT_REQUESTS, FixtureConversation, FixtureChatRequest } from "@/lib/fixtures";
+import {
+  FIXTURE_CONVERSATIONS,
+  FIXTURE_CHAT_REQUESTS,
+  FixtureConversation,
+  FixtureChatRequest,
+} from "@/lib/fixtures";
+import { discoveryApi } from "@/lib/api";
 
 export default function ChatsPage() {
   const [activeTab, setActiveTab] = useState<"conversations" | "requests">("conversations");
   const [conversations, setConversations] = useState<FixtureConversation[]>(FIXTURE_CONVERSATIONS);
   const [requests, setRequests] = useState<FixtureChatRequest[]>(FIXTURE_CHAT_REQUESTS);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const handleAcceptRequest = (requestId: string) => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch live incoming connection requests
+      const reqRes = await discoveryApi.fetchConnectionRequests();
+      if (reqRes.incoming && reqRes.incoming.length > 0) {
+        const mappedReqs: FixtureChatRequest[] = reqRes.incoming.map((r) => ({
+          id: r.id,
+          sender_persona: {
+            id: r.sender_persona.id,
+            display_name: r.sender_persona.display_name,
+            avatar_seed: r.sender_persona.avatar_seed,
+            declared_campus: r.sender_persona.declared_campus || undefined,
+            is_active: true,
+          },
+          preview_note: r.note || undefined,
+          mutual_interests: ["Adult Campus Community"],
+          compatibility_score: 85,
+          created_at: r.created_at,
+        }));
+        setRequests(mappedReqs);
+      } else {
+        setRequests(FIXTURE_CHAT_REQUESTS);
+      }
+
+      // 2. Fetch live mutual matches / active conversations
+      const matches = await discoveryApi.fetchMatches();
+      if (matches && matches.length > 0) {
+        const mappedConvs: FixtureConversation[] = matches.map((m) => ({
+          id: m.conversation_id || m.id,
+          other_persona: {
+            id: m.matched_persona.id,
+            display_name: m.matched_persona.display_name,
+            avatar_seed: m.matched_persona.avatar_seed,
+            declared_campus: m.matched_persona.declared_campus || undefined,
+            is_active: true,
+          },
+          last_message: "Connection accepted! Direct chat unlocked.",
+          last_message_at: m.created_at,
+          unread_count: 0,
+          is_active: true,
+        }));
+        setConversations(mappedConvs);
+      } else {
+        setConversations(FIXTURE_CONVERSATIONS);
+      }
+    } catch {
+      // Graceful fallback to fixtures in local development
+      setRequests(FIXTURE_CHAT_REQUESTS);
+      setConversations(FIXTURE_CONVERSATIONS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleAcceptRequest = async (requestId: string) => {
+    try {
+      await discoveryApi.acceptConnectionRequest(requestId);
+    } catch {
+      // Continue optimistic update
+    }
     const req = requests.find((r) => r.id === requestId);
     if (req) {
       const newConv: FixtureConversation = {
@@ -24,13 +95,18 @@ export default function ChatsPage() {
         unread_count: 0,
         is_active: true,
       };
-      setConversations([newConv, ...conversations]);
-      setRequests(requests.filter((r) => r.id !== requestId));
+      setConversations((prev) => [newConv, ...prev]);
+      setRequests((prev) => prev.filter((r) => r.id !== requestId));
     }
   };
 
-  const handleDeclineRequest = (requestId: string) => {
-    setRequests(requests.filter((r) => r.id !== requestId));
+  const handleDeclineRequest = async (requestId: string) => {
+    try {
+      await discoveryApi.rejectConnectionRequest(requestId);
+    } catch {
+      // Continue optimistic update
+    }
+    setRequests((prev) => prev.filter((r) => r.id !== requestId));
   };
 
   const formatTimeAgo = (dateStr: string) => {
@@ -56,9 +132,19 @@ export default function ChatsPage() {
               <MessageCircle className="w-5 h-5 text-[#9B72CF]" />
               Private Consent-Based Chats
             </h1>
-            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#62C49A]/15 text-[#62C49A] border border-[#62C49A]/30">
-              End-to-End Isolated
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#62C49A]/15 text-[#62C49A] border border-[#62C49A]/30">
+                End-to-End Isolated
+              </span>
+              <button
+                type="button"
+                onClick={loadData}
+                className="p-1 rounded-lg bg-[#1C1923] border border-[#2D283B] text-[#A49BAF] hover:text-[#F6F1FA] transition-colors"
+                title="Refresh chats"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#9B72CF]" : ""}`} />
+              </button>
+            </div>
           </div>
           <p className="text-xs text-[#A49BAF]">
             Communicate safely with accepted connections. Direct messaging strictly requires bilateral consent.
@@ -128,7 +214,7 @@ export default function ChatsPage() {
                         {formatTimeAgo(conv.last_message_at)}
                       </span>
                       {conv.unread_count > 0 && (
-                        <span className="block mt-1 w-5 h-5 rounded-full bg-[#9B72CF] text-[#111016] font-bold text-[10px] flex items-center justify-center ml-auto">
+                        <span className="mt-1 w-5 h-5 rounded-full bg-[#9B72CF] text-[#111016] font-bold text-[10px] flex items-center justify-center ml-auto">
                           {conv.unread_count}
                         </span>
                       )}

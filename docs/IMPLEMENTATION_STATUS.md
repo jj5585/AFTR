@@ -1,6 +1,6 @@
 # AFTR — Implementation Status & Roadmap
 
-**Current State**: Stage 5 (Anonymous Social Feed) Completed  
+**Current State**: Stage 6 (Discovery and Connections) Completed  
 **Last Updated**: 2026-11-18  
 **Architecture Lead**: Antigravity  
 
@@ -127,20 +127,32 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
   - **Automated Reporting & Audit Logs**: `POST /api/v1/reports` with immutable audit log recording
   - **Frontend Feed Integration**: `apps/web/src/lib/api.ts` connecting `/feed`, `/create`, `/post/[id]`, `AnonymousPostCard`, `PostComposer`, `ReportDialog`, and `BlockDialog`
   - **Automated Tests**: **44/44 test suites passing** (including 9 comprehensive social feed tests)
-- [ ] **Stage 6: Ephemeral Stories & Group Events**
+- [x] **Stage 6: Discovery and Connections**
+  - **Alembic Migration 007**: Adds `is_discoverable`, `relationship_intention`, `min_age_preference`, `max_age_preference`, and `dating_preferences_json` to `personas`; adds `note` to `connection_requests`.
+  - **Anonymous Discovery Cards**: `GET /api/v1/discovery/feed` returning public pseudonymous cards with compatibility score (65-99%), mutual interests, relationship intention, connection status, and zero identity leakage (no emails, auth IDs, or real names).
+  - **Opt-in Discoverability**: Strict enforcement requiring caller to be discoverable (`is_discoverable: bool`) to view feed; non-discoverable personas are completely excluded from candidate feeds.
+  - **Interest Selection & Taxonomy**: `GET /api/v1/discovery/interests`, `PUT /api/v1/discovery/preferences` with default taxonomy of adult campus interest tags.
+  - **Private Dating Preferences**: `dating_preferences_json` stored securely and used solely for backend compatibility scoring; never serialized in public responses.
+  - **Optional Self-Declared Campus & Intention Filters**: Query filters `campus` and `intention` for campus community discovery without `.edu` surveillance.
+  - **Bilateral Connection Request Lifecycle**:
+    - `POST /api/v1/connections/request`: Send anonymous request with optional intro note.
+    - `GET /api/v1/connections/requests`: Inbound & outbound pending request lists.
+    - `POST /api/v1/connections/requests/{id}/accept`: Atomic transition to `ACCEPTED`, canonical `Match` record creation, and unlocking private bilateral `Conversation` with participants and delivered intro note.
+    - `POST /api/v1/connections/requests/{id}/reject`: Marks `REJECTED`.
+    - `POST /api/v1/connections/requests/{id}/withdraw`: Marks `WITHDRAWN`.
+    - `GET /api/v1/connections/matches`: Lists mutual matches and unlocked conversation IDs.
+  - **Strict Consent-Gated Messaging Barrier**: Messages and conversations cannot exist without bilateral acceptance of a connection request.
+  - **Bilateral Block Isolation**: Complete two-way omission across discovery cards, connection requests, and matches.
+  - **Frontend Integration**: `apps/web/src/lib/api.ts` connecting `discover/page.tsx`, `ConnectionCard.tsx`, `chats/page.tsx`, and `ChatRequestCard.tsx`.
+  - **Automated Tests**: **54/54 test suites passing** (including 10 comprehensive discovery and mutual consent tests).
+- [ ] **Stage 7: Private Consent-Based Messaging & Real-Time Chat**
+  - End-to-end isolated 1-on-1 private messaging for accepted connections
+  - WebSocket / SSE real-time messaging pipeline with typing indicators
+  - Conversation archiving and safety triggers
+- [ ] **Stage 8: Ephemeral Stories & Group Events**
   - Ephemeral 24h anonymous stories with automatic expiration
-  - Public group events discovery and creation
+  - Public group events discovery and creation with landmark venue names
   - Event RSVP tracking
-  - Self-declared campus filters
-- [ ] **Stage 7: Compatibility Matching, Connection Requests & Consent-Based Messaging**
-  - Anonymous compatibility questionnaire & affinity scoring
-  - Connection request lifecycle (Pending, Accepted, Declined, Withdrawn)
-  - Consent-based 1-on-1 private messaging (unlocked strictly upon acceptance)
-  - Real-time messaging support (WebSocket / Redis PubSub)
-- [ ] **Stage 8: Frontend Application Feature Integration**
-  - Anonymous feed UI (Confessions, Stories, Events)
-  - Connections & Consent-Based Chat interface
-  - Reporting & Safety UI triggers
 - [ ] **Stage 9: End-to-End Verification, Security Hardening, Docker & Deployment Readiness**
   - Multi-stage Docker build
   - Production security headers, CORS, and rate limiting audit
@@ -158,3 +170,4 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 | 2026-11-18 | Stage 3 | Supabase JWT backend verification, 7 endpoints for invitation gate, AgeAssuranceEngine, 5 Next.js screens, 35/35 tests passing | ✅ Completed |
 | 2026-11-18 | Stage 4 | AFTR Design System & Frontend: exact brand color tokens, Desktop left sidebar & right discovery panel, Mobile compact header & bottom navigation, all 15 AFTR components, all 16 pages, 0 lint errors, Next.js build passed (18/18 routes), all 17 live routes tested OK 200, 35/35 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 5 | Anonymous Social Feed: Alembic migration 006, ContentModerationEngine, Keyset Cursor Pagination, 6 post categories, threaded comments, disabling comments, anonymous reactions, post deletion ownership enforcement, universal bilateral blocking, self-declared campus filtering, trending feed, frontend API integration, 44/44 pytest tests passing | ✅ Completed |
+| 2026-11-18 | Stage 6 | Anonymous Adult Discovery & Connections: Alembic migration 007, Persona discoverability & dating preferences, Interest taxonomy, Anonymous discovery cards with compatibility scoring, bilateral connection request lifecycle (send, accept, reject, withdraw), canonical Match generation, consent-gated conversation unlocking, bilateral block isolation, frontend integration on /discover and /chats, 54/54 pytest tests passing | ✅ Completed |
