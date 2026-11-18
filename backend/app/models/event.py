@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import (
     String, Text, Boolean, Integer, DateTime, Enum as SQLEnum,
-    ForeignKey, Uuid, UniqueConstraint
+    ForeignKey, Uuid, UniqueConstraint, Index
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,7 +28,6 @@ class Event(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(
         String(100),
-        index=True,
         nullable=False,
     )
     description: Mapped[str] = mapped_column(
@@ -72,6 +71,10 @@ class Event(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         "EventAttendee",
         back_populates="event",
         cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_events_time_cancelled", "event_time", "is_cancelled", "is_deleted"),
     )
 
 

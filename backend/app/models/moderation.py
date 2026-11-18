@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
     String, Text, Integer, DateTime, Enum as SQLEnum,
-    ForeignKey, Uuid, UniqueConstraint, CheckConstraint
+    ForeignKey, Uuid, UniqueConstraint, CheckConstraint, Index
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -118,7 +118,6 @@ class ModerationAction(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     target_persona_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("personas.id", ondelete="SET NULL"),
-        index=True,
         nullable=True,
     )
     action_type: Mapped[ModerationActionType] = mapped_column(
@@ -139,6 +138,10 @@ class ModerationAction(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Integer,
         default=1,
         nullable=False,
+    )
+
+    __table_args__ = (
+        Index("ix_moderation_actions_target_persona", "target_persona_id"),
     )
 
 

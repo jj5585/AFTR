@@ -2,7 +2,10 @@ import enum
 import uuid
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import String, Text, Boolean, Integer, DateTime, Enum as SQLEnum, ForeignKey, Uuid, UniqueConstraint
+from sqlalchemy import (
+    String, Text, Boolean, Integer, DateTime, Enum as SQLEnum,
+    ForeignKey, Uuid, UniqueConstraint, Index
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.models.base import Base, UUIDPrimaryKeyMixin, TimestampMixin
@@ -82,6 +85,11 @@ class Post(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
+    __table_args__ = (
+        Index("ix_posts_created_at", "created_at"),
+        Index("ix_posts_feed", "is_deleted", "moderation_status", "created_at"),
+    )
+
 
 class Comment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "comments"
@@ -137,6 +145,10 @@ class Comment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         "Comment",
         back_populates="parent",
         cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_comments_post_feed", "post_id", "is_deleted", "created_at"),
     )
 
 
@@ -234,6 +246,10 @@ class Story(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
+    __table_args__ = (
+        Index("ix_stories_expires_deleted", "expires_at", "is_deleted"),
+    )
+
 
 class StoryComment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "story_comments"
@@ -266,4 +282,8 @@ class StoryComment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     persona: Mapped["Persona"] = relationship(
         "Persona",
+    )
+
+    __table_args__ = (
+        Index("ix_story_comments_story_created", "story_id", "created_at"),
     )

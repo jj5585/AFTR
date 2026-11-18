@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import (
     String, Text, Boolean, Float, DateTime, Enum as SQLEnum,
-    ForeignKey, Uuid, UniqueConstraint, CheckConstraint
+    ForeignKey, Uuid, UniqueConstraint, CheckConstraint, Index
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -217,4 +217,9 @@ class Message(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     sender_persona: Mapped["Persona"] = relationship(
         "Persona",
         foreign_keys=[sender_persona_id],
+    )
+
+    __table_args__ = (
+        Index("ix_messages_created_at", "created_at"),
+        Index("ix_messages_conv_created", "conversation_id", "created_at"),
     )
