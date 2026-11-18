@@ -651,3 +651,232 @@ export const messagingApi = {
     return `${wsBase}/api/v1/ws/conversations/${conversationId}?token=${encodeURIComponent(token)}`;
   },
 };
+
+export interface LiveStoryItem {
+  id: string;
+  persona: {
+    id: string;
+    display_name: string;
+    avatar_seed: string;
+    declared_campus?: string | null;
+  };
+  content: string;
+  category: string;
+  allow_comments: boolean;
+  visibility: string;
+  campus_name?: string | null;
+  reactions_count: number;
+  user_has_reacted: boolean;
+  comments_count: number;
+  is_own: boolean;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface LiveEventItem {
+  id: string;
+  creator_persona: {
+    id: string;
+    display_name: string;
+    avatar_seed: string;
+    declared_campus?: string | null;
+  };
+  title: string;
+  description: string;
+  location_name: string;
+  event_time: string;
+  campus_name?: string | null;
+  max_attendees?: number | null;
+  attendees_count: number;
+  interested_count: number;
+  user_rsvp_status?: string | null;
+  is_cancelled: boolean;
+  is_organizer: boolean;
+  created_at: string;
+}
+
+export const storiesApi = {
+  async fetchStories(params: { category?: string; campus?: string; cursor?: string; limit?: number } = {}): Promise<PaginatedResult<LiveStoryItem>> {
+    try {
+      const q = new URLSearchParams();
+      if (params.category && params.category !== "all") q.append("category", params.category);
+      if (params.campus && params.campus !== "all") q.append("campus", params.campus);
+      if (params.cursor) q.append("cursor", params.cursor);
+      if (params.limit) q.append("limit", params.limit.toString());
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/stories?${q.toString()}`, {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], has_more: false };
+    }
+  },
+
+  async createStory(data: {
+    content: string;
+    category?: string;
+    allow_comments?: boolean;
+    visibility?: string;
+    campus_name?: string;
+  }): Promise<LiveStoryItem> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/stories`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async reactToStory(storyId: string, reactionType = "UPVOTE"): Promise<unknown> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/stories/${storyId}/reactions?reaction_type=${reactionType}`, {
+      method: "POST",
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  async fetchStoryComments(storyId: string): Promise<unknown[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/stories/${storyId}/comments`, {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async addStoryComment(storyId: string, content: string): Promise<unknown> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/stories/${storyId}/comments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async deleteStory(storyId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/stories/${storyId}`, {
+      method: "DELETE",
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+  },
+};
+
+export const eventsApi = {
+  async fetchEvents(params: { campus?: string; cursor?: string; limit?: number } = {}): Promise<PaginatedResult<LiveEventItem>> {
+    try {
+      const q = new URLSearchParams();
+      if (params.campus && params.campus !== "all") q.append("campus", params.campus);
+      if (params.cursor) q.append("cursor", params.cursor);
+      if (params.limit) q.append("limit", params.limit.toString());
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/events?${q.toString()}`, {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { items: [], has_more: false };
+    }
+  },
+
+  async createEvent(data: {
+    title: string;
+    description: string;
+    location_name: string;
+    event_time: string;
+    max_attendees?: number;
+    campus_name?: string;
+  }): Promise<LiveEventItem> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/events`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async rsvpEvent(eventId: string, status = "GOING"): Promise<LiveEventItem> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/events/${eventId}/rsvp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async withdrawRsvp(eventId: string): Promise<LiveEventItem> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/events/${eventId}/rsvp`, {
+      method: "DELETE",
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async cancelEvent(eventId: string): Promise<LiveEventItem> {
+    const res = await fetch(`${API_BASE_URL}/api/v1/events/${eventId}/cancel`, {
+      method: "POST",
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+};

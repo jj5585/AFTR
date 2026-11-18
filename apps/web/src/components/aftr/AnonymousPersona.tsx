@@ -2,13 +2,23 @@
 
 import React from "react";
 import { EyeOff } from "lucide-react";
-import { FixturePersona } from "@/lib/fixtures";
+
+export interface PersonaDisplayData {
+  id: string;
+  display_name: string;
+  avatar_seed: string;
+  bio?: string;
+  declared_campus?: string | null;
+  interests?: string[];
+  is_active?: boolean;
+}
 
 interface AnonymousPersonaProps {
-  persona: FixturePersona;
+  persona: PersonaDisplayData;
   size?: "sm" | "md" | "lg";
   showCampus?: boolean;
   showStatus?: boolean;
+  showBio?: boolean;
   className?: string;
 }
 

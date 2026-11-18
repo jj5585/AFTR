@@ -1,6 +1,6 @@
 # AFTR — Implementation Status & Roadmap
 
-**Current State**: Stage 7 (Private Messaging) Completed  
+**Current State**: Stage 8 (Stories & Meetups) Completed  
 **Last Updated**: 2026-11-18  
 **Architecture Lead**: Antigravity  
 
@@ -157,10 +157,29 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
   - **Conversation Blocking**: Closes conversation, records bilateral block, and returns 403 Forbidden on any future message attempts.
   - **Notification Indicators & Unread Counters**: `last_read_at` tracking with global `GET /conversations/unread-count` and reset upon opening conversation.
   - **Automated Tests**: **62/62 test suites passing** (including 8 comprehensive messaging authorization and security tests).
-- [ ] **Stage 8: Ephemeral Stories & Group Events**
-  - Ephemeral 24h anonymous stories with automatic expiration
-  - Public group events discovery and creation with landmark venue names
-  - Event RSVP tracking
+- [x] **Stage 8: Ephemeral Stories & Group Events**
+  - **Alembic Migration 009**: Adds `category`, `allow_comments`, `visibility`, `campus_name`, `moderation_status`, `is_deleted` to `stories`; creates `story_comments` table; adds `is_deleted` and index `ix_events_time_cancelled` to `events`.
+  - **Ephemeral 24-Hour Stories**:
+    - Automatic 24-hour expiration (`expires_at = utc_now() + timedelta(hours=24)`). Queries enforce `expires_at > now` and `is_deleted == False`.
+    - Categories: `night-thoughts`, `campus-life`, `confessions`, `dating`, `creative`.
+    - Anonymous reactions: `POST /api/v1/stories/{id}/reactions` (`UPVOTE` toggle).
+    - Optional comments: `allow_comments: bool` toggle by author; disabled comments return 403 Forbidden on reply attempts.
+    - Visibility: `PUBLIC` vs `CAMPUS`.
+    - Pre-publication content moderation: `ContentModerationEngine.evaluate_text` blocking phone numbers, emails, student IDs, and explicit harm.
+    - Author-only story deletion (`DELETE /api/v1/stories/{id}`).
+  - **Public Group Events (Meetups)**:
+    - Required named public venue landmark (`location_name`), date & time in the future (`event_time`).
+    - **Venue Safety Non-Negotiables**:
+      - **No live location sharing**: Raw GPS coordinates (`^-?\d{1,3}\.\d+[\s,]+-?\d{1,3}\.\d+$`) strictly rejected with 400 Bad Request.
+      - **No private home-address publishing**: Residential keywords (`my house`, `my apt`, `dorm room`, `unit #`, `bedroom`) strictly rejected with 400 Bad Request.
+    - **Capacity Enforcement**: `max_attendees` prevents overbooking; when capacity is reached, only `INTERESTED` is permitted (`GOING` rejected with 400 Bad Request).
+    - **RSVP Lifecycle**: `GOING`, `INTERESTED`, and attendance withdrawal (`DELETE /api/v1/events/{id}/rsvp`).
+    - **Organizer Controls**: Updating event, canceling event (`is_cancelled = True`). Non-organizers rejected with 403 Forbidden.
+  - **Bilateral Block Isolation**: Blocked users cannot view, react, comment on, or RSVP to each other's stories and events.
+  - **Frontend Integration**:
+    - `/stories`: Live ephemeral feed with category filter pills, campus toggle, aura gradients, composer with 24h timer, reactions, inline expandable threaded comments, author deletion, and community safety reporting.
+    - `/events`: Live gatherings feed with public venue policy notice, campus filter, event creator with venue safety validation, `EventCard` with cancellation status, "At Capacity" badge, interactive RSVP toggle, and organizer cancel button.
+  - **Automated Tests**: **70/70 test suites passing** (including 8 comprehensive story & event tests).
 - [ ] **Stage 9: End-to-End Verification, Security Hardening, Docker & Deployment Readiness**
   - Multi-stage Docker build
   - Production security headers, CORS, and rate limiting audit
@@ -180,3 +199,4 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
 | 2026-11-18 | Stage 5 | Anonymous Social Feed: Alembic migration 006, ContentModerationEngine, Keyset Cursor Pagination, 6 post categories, threaded comments, disabling comments, anonymous reactions, post deletion ownership enforcement, universal bilateral blocking, self-declared campus filtering, trending feed, frontend API integration, 44/44 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 6 | Anonymous Adult Discovery & Connections: Alembic migration 007, Persona discoverability & dating preferences, Interest taxonomy, Anonymous discovery cards with compatibility scoring, bilateral connection request lifecycle (send, accept, reject, withdraw), canonical Match generation, consent-gated conversation unlocking, bilateral block isolation, frontend integration on /discover and /chats, 54/54 pytest tests passing | ✅ Completed |
 | 2026-11-18 | Stage 7 | Private Messaging System: Alembic migration 008, encrypted message storage (Fernet/AES-128), zero message content logging, conversation-specific pseudonyms, authorized WebSocket realtime transport, message deletion, conversation blocking, unread notifications, membership verification on every operation, frontend /chats/[id] live integration, 62/62 pytest tests passing | ✅ Completed |
+| 2026-11-18 | Stage 8 | Stories & Meetups: Alembic migration 009, 24h ephemeral story lifecycle, story comments & reaction toggles, public group meetups, GPS & private residence blocking, attendance capacity enforcement, RSVP lifecycle (going, interested, withdraw), organizer cancellation controls, bilateral block isolation, frontend /stories and /events integration, 70/70 pytest tests passing | ✅ Completed |

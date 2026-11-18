@@ -187,8 +187,77 @@ class Story(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         index=True,
         nullable=False,
     )
+    category: Mapped[str] = mapped_column(
+        String(50),
+        default="night-thoughts",
+        index=True,
+        nullable=False,
+    )
+    allow_comments: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    visibility: Mapped[str] = mapped_column(
+        String(20),
+        default="PUBLIC",
+        nullable=False,
+    )
+    campus_name: Mapped[Optional[str]] = mapped_column(
+        String(120),
+        nullable=True,
+    )
+    moderation_status: Mapped[str] = mapped_column(
+        String(20),
+        default="APPROVED",
+        nullable=False,
+    )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
 
     persona: Mapped["Persona"] = relationship(
         "Persona",
         back_populates="stories",
+    )
+    comments: Mapped[List["StoryComment"]] = relationship(
+        "StoryComment",
+        back_populates="story",
+        cascade="all, delete-orphan",
+    )
+
+
+class StoryComment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "story_comments"
+
+    story_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("stories.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    persona_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("personas.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    story: Mapped["Story"] = relationship(
+        "Story",
+        back_populates="comments",
+    )
+    persona: Mapped["Persona"] = relationship(
+        "Persona",
     )

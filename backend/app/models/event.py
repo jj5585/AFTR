@@ -58,7 +58,16 @@ class Event(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         default=False,
         nullable=False,
     )
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
 
+    creator_persona: Mapped["Persona"] = relationship(
+        "Persona",
+        foreign_keys=[creator_persona_id],
+    )
     attendees: Mapped[List["EventAttendee"]] = relationship(
         "EventAttendee",
         back_populates="event",
@@ -90,6 +99,10 @@ class EventAttendee(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     event: Mapped["Event"] = relationship(
         "Event",
         back_populates="attendees",
+    )
+    persona: Mapped["Persona"] = relationship(
+        "Persona",
+        foreign_keys=[persona_id],
     )
 
     __table_args__ = (

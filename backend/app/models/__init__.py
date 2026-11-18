@@ -2,7 +2,7 @@ from backend.app.models.base import Base, UUIDPrimaryKeyMixin, TimestampMixin
 from backend.app.models.account import Account, AccountStatus
 from backend.app.models.persona import Persona, CampusAffiliation, Interest, PersonaInterest
 from backend.app.models.invitation import Invitation, InvitationStatus
-from backend.app.models.social import Post, PostType, Comment, Reaction, Story
+from backend.app.models.social import Post, PostType, Comment, Reaction, Story, StoryComment
 from backend.app.models.connection import (
     ConnectionRequest,
     ConnectionRequestStatus,
