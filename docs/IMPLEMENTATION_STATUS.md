@@ -222,7 +222,8 @@ AFTR is an 18+ anonymous social platform for adult campus communities.
     - College email verification prohibited: Non-institutional standard emails (`@gmail.com`) cleanly validated
     - Underage access prevention: Cryptographic `AgeAssuranceEngine` strictly rejects age `< 18`
     - Production security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection`, CSP, and HSTS verified
-  - **Automated Tests**: **89/89 test suites passing** across the entire backend in 5.95s.
+  - **Automated Tests**: **89/89 test suites passing** across the entire backend in 6.52s.
+  - **Database Migration Synchronization**: Verified `alembic current` (`010 (head)`) and `alembic check` (`No new upgrade operations detected`). Model index declarations synchronized with migrations.
   - **Hardened Multi-Stage Container** (`backend/Dockerfile`):
     - Separate builder and runner stages, non-root user `aftruser:aftrgroup` (`UID 1001`), production healthcheck probe (`/api/v1/health`), uvicorn multi-worker runner.
   - **Frontend Edge Security** (`apps/web/vercel.json`):
